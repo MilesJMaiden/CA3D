@@ -426,37 +426,42 @@ public class AdvancedTerrainGenerator : MonoBehaviour
 
     private void ApplyMarchingCubes(float[,] heights)
     {
-        // Define the size of the scalar field
+        // Define the size of the scalar field.
         int gridWidth = Mathf.CeilToInt(width / marchingCubesVoxelSize);
         int gridLength = Mathf.CeilToInt(length / marchingCubesVoxelSize);
         int gridHeight = Mathf.CeilToInt(height / marchingCubesVoxelSize);
 
-        // Create a 3D scalar field
+        // Create a 3D scalar field based on the heightmap.
+        // We'll create a binary field: density = 1 below terrain surface, 0 above.
         float[,,] scalarField = new float[gridWidth, gridHeight, gridLength];
 
-        // Populate the scalar field based on the heightmap
         for (int x = 0; x < gridWidth; x++)
         {
             for (int z = 0; z < gridLength; z++)
             {
-                float heightValue = heights[Mathf.Clamp(x * (width / gridWidth), 0, width - 1), Mathf.Clamp(z * (length / gridLength), 0, length - 1)] * height;
+                int mapX = Mathf.Clamp((int)((x / (float)gridWidth) * (width - 1)), 0, width - 1);
+                int mapZ = Mathf.Clamp((int)((z / (float)gridLength) * (length - 1)), 0, length - 1);
+
+                float terrainHeight = heights[mapX, mapZ] * height;
 
                 for (int y = 0; y < gridHeight; y++)
                 {
-                    scalarField[x, y, z] = y < heightValue ? 1f : 0f;
+                    // If the cell is below the height surface, it's inside (density=1)
+                    // If above, it's outside (density=0)
+                    float density = (y <= terrainHeight) ? 1f : 0f;
+                    scalarField[x, y, z] = density;
                 }
             }
         }
 
-        // Apply the Marching Cubes algorithm to generate the mesh
+        // Apply the Marching Cubes algorithm to generate the mesh.
         Mesh marchingCubesMesh = GenerateMarchingCubesMesh(scalarField);
 
-        // Assign the generated mesh to the terrain
+        // Create a new GameObject for the generated mesh.
         GameObject marchingCubesObject = new GameObject("MarchingCubesMesh", typeof(MeshFilter), typeof(MeshRenderer));
         marchingCubesObject.GetComponent<MeshFilter>().mesh = marchingCubesMesh;
         marchingCubesObject.GetComponent<MeshRenderer>().material = new Material(Shader.Find("Standard"));
 
-        // Optional debug visualization
         if (enableMarchingCubesDebug)
         {
             Debug.Log("Marching Cubes mesh generated with vertices: " + marchingCubesMesh.vertexCount);
@@ -467,91 +472,100 @@ public class AdvancedTerrainGenerator : MonoBehaviour
     {
         List<Vector3> vertices = new List<Vector3>();
         List<int> triangles = new List<int>();
+        Dictionary<(float, float, float), int> vertexCache = new Dictionary<(float, float, float), int>();
 
-        int width = scalarField.GetLength(0);
-        int height = scalarField.GetLength(1);
-        int length = scalarField.GetLength(2);
+        int w = scalarField.GetLength(0);
+        int h = scalarField.GetLength(1);
+        int l = scalarField.GetLength(2);
 
-        // Iterate through the scalar field
-        for (int x = 0; x < width - 1; x++)
+        for (int x = 0; x < w - 1; x++)
         {
-            for (int y = 0; y < height - 1; y++)
+            for (int y = 0; y < h - 1; y++)
             {
-                for (int z = 0; z < length - 1; z++)
+                for (int z = 0; z < l - 1; z++)
                 {
-                    // Create a cube of scalar values
+                    // Gather the cube's corner densities
                     float[] cube = new float[8];
                     for (int i = 0; i < 8; i++)
                     {
                         Vector3 offset = GetVertexOffset(i);
-                        cube[i] = scalarField[x + (int)offset.x, y + (int)offset.y, z + (int)offset.z];
+                        int ox = x + (int)offset.x;
+                        int oy = y + (int)offset.y;
+                        int oz = z + (int)offset.z;
+                        cube[i] = scalarField[ox, oy, oz];
                     }
 
-                    // Determine the cube's case based on the threshold
-                    int caseIndex = GetCubeCaseIndex(cube);
-
-                    // Add triangles for this cube case
-                    for (int i = 0; MarchingCubesTables.Triangles[caseIndex, i] != -1; i += 3)
+                    // Determine the cube configuration index.
+                    int cubeIndex = 0;
+                    for (int i = 0; i < 8; i++)
                     {
-                        int edge1 = MarchingCubesTables.Triangles[caseIndex, i];
-                        int edge2 = MarchingCubesTables.Triangles[caseIndex, i + 1];
-                        int edge3 = MarchingCubesTables.Triangles[caseIndex, i + 2];
+                        if (cube[i] > marchingCubesThreshold) cubeIndex |= 1 << i;
+                    }
 
-                        Vector3 vertex1 = InterpolateEdge(edge1, cube, x, y, z);
-                        Vector3 vertex2 = InterpolateEdge(edge2, cube, x, y, z);
-                        Vector3 vertex3 = InterpolateEdge(edge3, cube, x, y, z);
+                    // If the cube is entirely inside or outside, no triangles:
+                    if (MarchingCubesTables.EdgeTable[cubeIndex] == 0) continue;
 
-                        int vertexIndex = vertices.Count;
-                        vertices.Add(vertex1);
-                        vertices.Add(vertex2);
-                        vertices.Add(vertex3);
+                    // For each possible triangle in this configuration:
+                    for (int i = 0; i < 16; i += 3)
+                    {
+                        int a0 = MarchingCubesTables.TriangleTable[cubeIndex, i + 0];
+                        if (a0 == -1) break;
+                        int a1 = MarchingCubesTables.TriangleTable[cubeIndex, i + 1];
+                        int a2 = MarchingCubesTables.TriangleTable[cubeIndex, i + 2];
 
-                        triangles.Add(vertexIndex);
-                        triangles.Add(vertexIndex + 1);
-                        triangles.Add(vertexIndex + 2);
+                        Vector3 v0 = InterpolateEdge(a0, cube, x, y, z);
+                        Vector3 v1 = InterpolateEdge(a1, cube, x, y, z);
+                        Vector3 v2 = InterpolateEdge(a2, cube, x, y, z);
+
+                        int vIndex0 = AddVertex(vertices, vertexCache, v0);
+                        int vIndex1 = AddVertex(vertices, vertexCache, v1);
+                        int vIndex2 = AddVertex(vertices, vertexCache, v2);
+
+                        triangles.Add(vIndex0);
+                        triangles.Add(vIndex1);
+                        triangles.Add(vIndex2);
                     }
                 }
             }
         }
 
-        // Create the mesh
         Mesh mesh = new Mesh();
+        mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
         mesh.vertices = vertices.ToArray();
         mesh.triangles = triangles.ToArray();
         mesh.RecalculateNormals();
         return mesh;
     }
 
-    private int GetCubeCaseIndex(float[] cube)
+    private int AddVertex(List<Vector3> vertices, Dictionary<(float, float, float), int> cache, Vector3 vertex)
     {
-        int caseIndex = 0;
-        for (int i = 0; i < 8; i++)
-        {
-            if (cube[i] > marchingCubesThreshold)
-            {
-                caseIndex |= 1 << i;
-            }
-        }
-        return caseIndex;
+        var key = (vertex.x, vertex.y, vertex.z);
+        if (cache.TryGetValue(key, out int index))
+            return index;
+
+        index = vertices.Count;
+        vertices.Add(vertex);
+        cache[key] = index;
+        return index;
     }
 
     private Vector3 InterpolateEdge(int edge, float[] cube, int x, int y, int z)
     {
-        int vertexAIndex = MarchingCubesTables.EdgeVertices[edge, 0];
-        int vertexBIndex = MarchingCubesTables.EdgeVertices[edge, 1];
+        int v0 = MarchingCubesTables.EdgeToVertex[edge, 0];
+        int v1 = MarchingCubesTables.EdgeToVertex[edge, 1];
 
-        Vector3 vertexAOffset = GetVertexOffset(vertexAIndex);
-        Vector3 vertexBOffset = GetVertexOffset(vertexBIndex);
+        Vector3 p0 = new Vector3(x, y, z) + GetVertexOffset(v0);
+        Vector3 p1 = new Vector3(x, y, z) + GetVertexOffset(v1);
 
-        float valueA = cube[vertexAIndex];
-        float valueB = cube[vertexBIndex];
+        float v0Density = cube[v0];
+        float v1Density = cube[v1];
 
-        float t = (marchingCubesThreshold - valueA) / (valueB - valueA);
+        float denominator = (v1Density - v0Density);
+        float t = Mathf.Abs(denominator) < 1e-6f ? 0.5f : (marchingCubesThreshold - v0Density) / denominator;
+        t = Mathf.Clamp01(t);
 
-        Vector3 vertexA = new Vector3(x, y, z) + vertexAOffset;
-        Vector3 vertexB = new Vector3(x, y, z) + vertexBOffset;
-
-        return Vector3.Lerp(vertexA, vertexB, t);
+        Vector3 p = Vector3.Lerp(p0, p1, t) * marchingCubesVoxelSize;
+        return p;
     }
 
     private Vector3 GetVertexOffset(int vertexIndex)
@@ -562,6 +576,20 @@ public class AdvancedTerrainGenerator : MonoBehaviour
             (vertexIndex & 4) == 4 ? 1 : 0
         );
     }
+
+
+
+    private int GetCubeCaseIndex(float[] cube)
+    {
+        int caseIndex = 0;
+        for (int i = 0; i < 8; i++)
+        {
+            if (cube[i] > marchingCubesThreshold)
+                caseIndex |= 1 << i;
+        }
+        return caseIndex;
+    }
+
 
     private void NormalizeHeights(float[,] heights)
     {
