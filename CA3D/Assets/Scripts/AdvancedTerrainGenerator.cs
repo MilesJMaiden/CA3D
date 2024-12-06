@@ -509,9 +509,7 @@ public class AdvancedTerrainGenerator : MonoBehaviour
 
         float[,,] scalarField = new float[gridWidth, gridHeight, gridLength];
 
-        // Define how quickly density falls off from terrainHeight.
-        // A small value (e.g., 1f) means a sharp cutoff, a larger value (e.g., 5f) means a smoother transition.
-        float falloffFactor = 5f;
+        float falloffFactor = 5f; // Adjust as necessary
 
         for (int x = 0; x < gridWidth; x++)
         {
@@ -524,10 +522,7 @@ public class AdvancedTerrainGenerator : MonoBehaviour
 
                 for (int y = 0; y < gridHeight; y++)
                 {
-                    // Instead of a binary cutoff:
-                    // Calculate a distance from y to the terrainHeight.
                     float dist = Mathf.Abs(y - terrainHeight);
-                    // Create a smooth density gradient:
                     float density = 1f - (dist / (marchingCubesVoxelSize * falloffFactor));
                     density = Mathf.Clamp01(density);
 
@@ -536,20 +531,20 @@ public class AdvancedTerrainGenerator : MonoBehaviour
             }
         }
 
-        // Apply Marching Cubes to this smoother scalar field
         Mesh marchingCubesMesh = GenerateMarchingCubesMesh(scalarField);
+
+        // Optional: Remove degenerate triangles to help prevent holes
+        RemoveDegenerateTriangles(marchingCubesMesh);
 
         GameObject marchingCubesObject = new GameObject("MarchingCubesMesh", typeof(MeshFilter), typeof(MeshRenderer));
         marchingCubesObject.GetComponent<MeshFilter>().mesh = marchingCubesMesh;
 
-        // Use the assigned material if available, otherwise create a default one
         if (marchingCubesMaterial != null)
         {
             marchingCubesObject.GetComponent<MeshRenderer>().material = marchingCubesMaterial;
         }
         else
         {
-            // Fallback: assign a default material if none is specified
             marchingCubesObject.GetComponent<MeshRenderer>().material = new Material(Shader.Find("Standard"));
         }
 
@@ -558,7 +553,6 @@ public class AdvancedTerrainGenerator : MonoBehaviour
             Debug.Log("Marching Cubes mesh generated with vertices: " + marchingCubesMesh.vertexCount);
         }
     }
-
 
     private Mesh GenerateMarchingCubesMesh(float[,,] scalarField)
     {
@@ -589,13 +583,18 @@ public class AdvancedTerrainGenerator : MonoBehaviour
                     int cubeIndex = 0;
                     for (int i = 0; i < 8; i++)
                     {
-                        if (cube[i] < marchingCubesThreshold)
+                        bool inside = insideBelowThreshold
+                            ? (cube[i] < marchingCubesThreshold)
+                            : (cube[i] > marchingCubesThreshold);
+
+                        if (inside)
                             cubeIndex |= 1 << i;
                     }
 
                     if (MarchingCubesTables.EdgeTable[cubeIndex] == 0)
                         continue;
 
+                    // Create triangles for this cube configuration
                     for (int i = 0; i < 16; i += 3)
                     {
                         int a0 = MarchingCubesTables.TriangleTable[cubeIndex, i];
@@ -624,11 +623,10 @@ public class AdvancedTerrainGenerator : MonoBehaviour
         mesh.vertices = vertices.ToArray();
         mesh.triangles = triangles.ToArray();
         mesh.RecalculateNormals();
-        mesh.RecalculateBounds(); // Ensure bounds are correct.
+        mesh.RecalculateBounds();
 
         return mesh;
     }
-
 
     private int AddVertex(List<Vector3> vertices, Dictionary<(float, float, float), int> cache, Vector3 vertex)
     {
@@ -642,26 +640,6 @@ public class AdvancedTerrainGenerator : MonoBehaviour
         return index;
     }
 
-    private Vector3 VertexInterp(float isolevel, Vector3 p1, Vector3 p2, float valp1, float valp2)
-    {
-        // If one value is near the isolevel, return that vertex directly
-        if (Mathf.Abs(isolevel - valp1) < 0.00001f)
-            return p1;
-        if (Mathf.Abs(isolevel - valp2) < 0.00001f)
-            return p2;
-
-        // If values are extremely close, also just pick one
-        if (Mathf.Abs(valp1 - valp2) < 0.00001f)
-            return p1;
-
-        // Linear interpolation parameter
-        float mu = (isolevel - valp1) / (valp2 - valp1);
-
-        // Interpolate linearly
-        Vector3 p = p1 + mu * (p2 - p1);
-        return p;
-    }
-
     private Vector3 InterpolateEdge(int edge, float[] cube, int x, int y, int z)
     {
         int v0 = MarchingCubesTables.EdgeToVertex[edge, 0];
@@ -673,12 +651,28 @@ public class AdvancedTerrainGenerator : MonoBehaviour
         float valp0 = cube[v0];
         float valp1 = cube[v1];
 
-        // Use the improved VertexInterp function with isolevel = marchingCubesThreshold
-        Vector3 interpolatedPos = VertexInterp(marchingCubesThreshold, p0 * marchingCubesVoxelSize, p1 * marchingCubesVoxelSize, valp0, valp1);
-
-        return interpolatedPos;
+        return VertexInterp(marchingCubesThreshold, p0 * marchingCubesVoxelSize, p1 * marchingCubesVoxelSize, valp0, valp1);
     }
 
+    private Vector3 VertexInterp(float isolevel, Vector3 p1, Vector3 p2, float valp1, float valp2)
+    {
+        float epsilon = 1e-6f;
+
+        if (Mathf.Abs(isolevel - valp1) < epsilon)
+            return p1;
+        if (Mathf.Abs(isolevel - valp2) < epsilon)
+            return p2;
+
+        float dv = valp2 - valp1;
+        if (Mathf.Abs(dv) < epsilon)
+            return p1;
+
+        float mu = (isolevel - valp1) / dv;
+        // Consider not clamping mu if it leads to degeneracy:
+        // mu = Mathf.Clamp01(mu);
+
+        return p1 + mu * (p2 - p1);
+    }
 
     private Vector3 GetVertexOffset(int vertexIndex)
     {
@@ -689,19 +683,39 @@ public class AdvancedTerrainGenerator : MonoBehaviour
         );
     }
 
-
-
-    private int GetCubeCaseIndex(float[] cube)
+    /// <summary>
+    /// Remove degenerate triangles (zero-area) from the mesh.
+    /// This can help close up certain small holes caused by near-collinear vertices.
+    /// </summary>
+    private void RemoveDegenerateTriangles(Mesh mesh)
     {
-        int caseIndex = 0;
-        for (int i = 0; i < 8; i++)
+        List<Vector3> verts = new List<Vector3>(mesh.vertices);
+        List<int> tris = new List<int>(mesh.triangles);
+        for (int i = 0; i < tris.Count; i += 3)
         {
-            if (cube[i] < marchingCubesThreshold)
-                caseIndex |= 1 << i;
-        }
-        return caseIndex;
-    }
+            Vector3 v0 = verts[tris[i]];
+            Vector3 v1 = verts[tris[i + 1]];
+            Vector3 v2 = verts[tris[i + 2]];
 
+            Vector3 cross = Vector3.Cross(v1 - v0, v2 - v0);
+            float area = cross.magnitude * 0.5f;
+            // Remove triangles with extremely small area
+            if (area < 1e-12f)
+            {
+                // Mark this triangle as degenerate
+                tris[i] = 0;
+                tris[i + 1] = 0;
+                tris[i + 2] = 0;
+            }
+        }
+
+        // Remove all zeroed indices
+        tris.RemoveAll(t => t == 0);
+
+        mesh.triangles = tris.ToArray();
+        mesh.RecalculateNormals();
+        mesh.RecalculateBounds();
+    }
 
     private void NormalizeHeights(float[,] heights)
     {
