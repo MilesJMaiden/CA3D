@@ -90,13 +90,90 @@ public class AdvancedTerrainGenerator : MonoBehaviour
 
     [Header("Marching Cubes Settings")]
     public bool useMarchingCubes = false;
-    [Tooltip("Density threshold for Marching Cubes (values above this are solid).")]
+
+    [Header("Marching Cubes Material")]
+    [Tooltip("The material used to render the Marching Cubes generated mesh.")]
+    public Material marchingCubesMaterial;
+
+
+    // This determines whether the mesh is generated such that values **below** the threshold are inside (solid)
+    // and values above are outside, or vice versa. Using standard Marching Cubes conventions, inside = below threshold.
+    [Tooltip("If true, values below the threshold are considered 'inside', else above the threshold are inside.")]
+    public bool insideBelowThreshold = true;
+
+    // The isosurface value at which the surface will be extracted.
+    [Tooltip("Density threshold (isolevel) for Marching Cubes. The iso-surface will be generated at this value.")]
     public float marchingCubesThreshold = 0.5f;
-    [Tooltip("Voxel size for the scalar field.")]
+
+    // Allows you to adjust the granularity of your voxel field.
+    [Tooltip("Voxel size for the Marching Cubes scalar field. Smaller values create finer detail but higher computation cost.")]
     public float marchingCubesVoxelSize = 1f;
+
+    // If you're applying a gradient to your scalar field or blending multiple fields,
+    // provide a parameter to control the overall smoothness.
+    [Tooltip("Controls how quickly density falls off around terrain height. Higher values = smoother transitions.")]
+    public float densityFalloffFactor = 5f;
+
+    // If your scalar field comes from different sources, a blend mode could be useful (additive, multiplicative, max, min)
+    [Tooltip("How different scalar fields or layers should be combined: Additive, Multiplicative, etc.")]
+    public ScalarFieldBlendingMode scalarFieldBlendingMode = ScalarFieldBlendingMode.Additive;
+
+    // If you generate the scalar field from multiple noise layers or other influences,
+    // you can expose parameters to control how they blend or at which scale they are sampled.
+    [Tooltip("Additional scalar field influences to include in the marching cubes field.")]
+    public List<ScalarFieldLayer> additionalScalarFields = new List<ScalarFieldLayer>();
+
+    // Debugging options: show wires, normals, or intermediate voxel points
     [Tooltip("Enable debug visualization for the Marching Cubes scalar field.")]
     public bool enableMarchingCubesDebug = false;
 
+    [Tooltip("If debug is enabled, draw the voxel grid.")]
+    public bool drawVoxelGrid = false;
+
+    [Tooltip("If debug is enabled, draw normals of the generated mesh.")]
+    public bool drawMeshNormals = false;
+
+    public enum ScalarFieldBlendingMode
+    {
+        Additive,
+        Multiplicative,
+        Minimum,
+        Maximum
+    }
+
+    // Represents an additional scalar field layer (could be noise, procedural function, or a texture)
+    [System.Serializable]
+    public class ScalarFieldLayer
+    {
+        [Tooltip("The type of scalar field source. This could be a noise function, another heightmap, etc.")]
+        public ScalarFieldSourceType sourceType = ScalarFieldSourceType.Perlin;
+
+        [Tooltip("Base scale of this scalar field layer.")]
+        public float scale = 20f;
+
+        [Tooltip("Amplitude of this scalar field layer.")]
+        public float amplitude = 1f;
+
+        [Tooltip("Frequency multiplier for subsequent evaluations.")]
+        public float frequency = 1f;
+
+        [Tooltip("Offset in X direction for this layer.")]
+        public float offsetX = 0f;
+
+        [Tooltip("Offset in Z direction (or Y in a 2D domain) for this layer.")]
+        public float offsetZ = 0f;
+
+        [Tooltip("Blend weight for how strongly this layer influences the final scalar field.")]
+        public float weight = 1f;
+    }
+
+    public enum ScalarFieldSourceType
+    {
+        Perlin,
+        Worley,
+        Simplex,
+        VoronoiDistance
+    }
 
     [Header("Performance Settings")]
     [Tooltip("Regenerate terrain only when toggled or variables change.")]
@@ -426,14 +503,15 @@ public class AdvancedTerrainGenerator : MonoBehaviour
 
     private void ApplyMarchingCubes(float[,] heights)
     {
-        // Define the size of the scalar field.
         int gridWidth = Mathf.CeilToInt(width / marchingCubesVoxelSize);
         int gridLength = Mathf.CeilToInt(length / marchingCubesVoxelSize);
         int gridHeight = Mathf.CeilToInt(height / marchingCubesVoxelSize);
 
-        // Create a 3D scalar field based on the heightmap.
-        // We'll create a binary field: density = 1 below terrain surface, 0 above.
         float[,,] scalarField = new float[gridWidth, gridHeight, gridLength];
+
+        // Define how quickly density falls off from terrainHeight.
+        // A small value (e.g., 1f) means a sharp cutoff, a larger value (e.g., 5f) means a smoother transition.
+        float falloffFactor = 5f;
 
         for (int x = 0; x < gridWidth; x++)
         {
@@ -446,27 +524,41 @@ public class AdvancedTerrainGenerator : MonoBehaviour
 
                 for (int y = 0; y < gridHeight; y++)
                 {
-                    // If the cell is below the height surface, it's inside (density=1)
-                    // If above, it's outside (density=0)
-                    float density = (y <= terrainHeight) ? 1f : 0f;
+                    // Instead of a binary cutoff:
+                    // Calculate a distance from y to the terrainHeight.
+                    float dist = Mathf.Abs(y - terrainHeight);
+                    // Create a smooth density gradient:
+                    float density = 1f - (dist / (marchingCubesVoxelSize * falloffFactor));
+                    density = Mathf.Clamp01(density);
+
                     scalarField[x, y, z] = density;
                 }
             }
         }
 
-        // Apply the Marching Cubes algorithm to generate the mesh.
+        // Apply Marching Cubes to this smoother scalar field
         Mesh marchingCubesMesh = GenerateMarchingCubesMesh(scalarField);
 
-        // Create a new GameObject for the generated mesh.
         GameObject marchingCubesObject = new GameObject("MarchingCubesMesh", typeof(MeshFilter), typeof(MeshRenderer));
         marchingCubesObject.GetComponent<MeshFilter>().mesh = marchingCubesMesh;
-        marchingCubesObject.GetComponent<MeshRenderer>().material = new Material(Shader.Find("Standard"));
+
+        // Use the assigned material if available, otherwise create a default one
+        if (marchingCubesMaterial != null)
+        {
+            marchingCubesObject.GetComponent<MeshRenderer>().material = marchingCubesMaterial;
+        }
+        else
+        {
+            // Fallback: assign a default material if none is specified
+            marchingCubesObject.GetComponent<MeshRenderer>().material = new Material(Shader.Find("Standard"));
+        }
 
         if (enableMarchingCubesDebug)
         {
             Debug.Log("Marching Cubes mesh generated with vertices: " + marchingCubesMesh.vertexCount);
         }
     }
+
 
     private Mesh GenerateMarchingCubesMesh(float[,,] scalarField)
     {
@@ -484,7 +576,6 @@ public class AdvancedTerrainGenerator : MonoBehaviour
             {
                 for (int z = 0; z < l - 1; z++)
                 {
-                    // Gather the cube's corner densities
                     float[] cube = new float[8];
                     for (int i = 0; i < 8; i++)
                     {
@@ -495,20 +586,19 @@ public class AdvancedTerrainGenerator : MonoBehaviour
                         cube[i] = scalarField[ox, oy, oz];
                     }
 
-                    // Determine the cube configuration index.
                     int cubeIndex = 0;
                     for (int i = 0; i < 8; i++)
                     {
-                        if (cube[i] > marchingCubesThreshold) cubeIndex |= 1 << i;
+                        if (cube[i] < marchingCubesThreshold)
+                            cubeIndex |= 1 << i;
                     }
 
-                    // If the cube is entirely inside or outside, no triangles:
-                    if (MarchingCubesTables.EdgeTable[cubeIndex] == 0) continue;
+                    if (MarchingCubesTables.EdgeTable[cubeIndex] == 0)
+                        continue;
 
-                    // For each possible triangle in this configuration:
                     for (int i = 0; i < 16; i += 3)
                     {
-                        int a0 = MarchingCubesTables.TriangleTable[cubeIndex, i + 0];
+                        int a0 = MarchingCubesTables.TriangleTable[cubeIndex, i];
                         if (a0 == -1) break;
                         int a1 = MarchingCubesTables.TriangleTable[cubeIndex, i + 1];
                         int a2 = MarchingCubesTables.TriangleTable[cubeIndex, i + 2];
@@ -534,8 +624,11 @@ public class AdvancedTerrainGenerator : MonoBehaviour
         mesh.vertices = vertices.ToArray();
         mesh.triangles = triangles.ToArray();
         mesh.RecalculateNormals();
+        mesh.RecalculateBounds(); // Ensure bounds are correct.
+
         return mesh;
     }
+
 
     private int AddVertex(List<Vector3> vertices, Dictionary<(float, float, float), int> cache, Vector3 vertex)
     {
@@ -549,6 +642,26 @@ public class AdvancedTerrainGenerator : MonoBehaviour
         return index;
     }
 
+    private Vector3 VertexInterp(float isolevel, Vector3 p1, Vector3 p2, float valp1, float valp2)
+    {
+        // If one value is near the isolevel, return that vertex directly
+        if (Mathf.Abs(isolevel - valp1) < 0.00001f)
+            return p1;
+        if (Mathf.Abs(isolevel - valp2) < 0.00001f)
+            return p2;
+
+        // If values are extremely close, also just pick one
+        if (Mathf.Abs(valp1 - valp2) < 0.00001f)
+            return p1;
+
+        // Linear interpolation parameter
+        float mu = (isolevel - valp1) / (valp2 - valp1);
+
+        // Interpolate linearly
+        Vector3 p = p1 + mu * (p2 - p1);
+        return p;
+    }
+
     private Vector3 InterpolateEdge(int edge, float[] cube, int x, int y, int z)
     {
         int v0 = MarchingCubesTables.EdgeToVertex[edge, 0];
@@ -557,16 +670,15 @@ public class AdvancedTerrainGenerator : MonoBehaviour
         Vector3 p0 = new Vector3(x, y, z) + GetVertexOffset(v0);
         Vector3 p1 = new Vector3(x, y, z) + GetVertexOffset(v1);
 
-        float v0Density = cube[v0];
-        float v1Density = cube[v1];
+        float valp0 = cube[v0];
+        float valp1 = cube[v1];
 
-        float denominator = (v1Density - v0Density);
-        float t = Mathf.Abs(denominator) < 1e-6f ? 0.5f : (marchingCubesThreshold - v0Density) / denominator;
-        t = Mathf.Clamp01(t);
+        // Use the improved VertexInterp function with isolevel = marchingCubesThreshold
+        Vector3 interpolatedPos = VertexInterp(marchingCubesThreshold, p0 * marchingCubesVoxelSize, p1 * marchingCubesVoxelSize, valp0, valp1);
 
-        Vector3 p = Vector3.Lerp(p0, p1, t) * marchingCubesVoxelSize;
-        return p;
+        return interpolatedPos;
     }
+
 
     private Vector3 GetVertexOffset(int vertexIndex)
     {
@@ -584,7 +696,7 @@ public class AdvancedTerrainGenerator : MonoBehaviour
         int caseIndex = 0;
         for (int i = 0; i < 8; i++)
         {
-            if (cube[i] > marchingCubesThreshold)
+            if (cube[i] < marchingCubesThreshold)
                 caseIndex |= 1 << i;
         }
         return caseIndex;
