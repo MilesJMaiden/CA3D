@@ -63,7 +63,6 @@ public class AdvancedTerrainGenerator : MonoBehaviour
     [Tooltip("Enable debug logs for Mid-Point Displacement.")]
     public bool enableDebugLogs = false;
 
-
     [Header("Voronoi Biomes Settings")]
     public bool useVoronoiBiomes = false;
     [Tooltip("Number of Voronoi regions.")]
@@ -86,7 +85,6 @@ public class AdvancedTerrainGenerator : MonoBehaviour
 
     [Tooltip("Custom points for Voronoi distribution (used if DistributionMode is Custom).")]
     public List<Vector2> customVoronoiPoints = new List<Vector2>();
-
 
     [Header("Marching Cubes Settings")]
     public bool useMarchingCubes = false;
@@ -237,6 +235,10 @@ public class AdvancedTerrainGenerator : MonoBehaviour
         return heights;
     }
 
+    /// <summary>
+    /// Applies Perlin noise to modify the heightmap, blending multiple layers with adjustable amplitudes and frequencies.
+    /// </summary>
+    /// <param name="heights">The 2D heightmap array to modify.</param>
     private void ApplyPerlinNoise(float[,] heights)
     {
         for (int x = 0; x < width; x++)
@@ -276,7 +278,10 @@ public class AdvancedTerrainGenerator : MonoBehaviour
         }
     }
 
-
+    /// <summary>
+    /// Applies fractal Brownian motion (fBm) to the heightmap using Perlin noise for layered, realistic terrain generation.
+    /// </summary>
+    /// <param name="heights">The 2D heightmap array to modify.</param>
     private void ApplyFractalBrownianMotion(float[,] heights)
     {
         for (int x = 0; x < width; x++)
@@ -316,7 +321,13 @@ public class AdvancedTerrainGenerator : MonoBehaviour
         }
     }
 
-
+    /// <summary>
+    /// Applies the Midpoint Displacement algorithm to generate terrain heights by recursively subdividing and averaging height values.
+    /// </summary>
+    /// <param name="heights">The 2D heightmap array to modify.</param>
+    /// <remarks>
+    /// This method works with dimensions of 2^n + 1 and uses a random seed for consistent results.
+    /// </remarks>
     private void ApplyMidPointDisplacement(float[,] heights)
     {
         // Ensure grid size matches 2^n + 1
@@ -416,11 +427,20 @@ public class AdvancedTerrainGenerator : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Determines if a given value is of the form 2^n + 1, which is required for the Midpoint Displacement algorithm.
+    /// </summary>
+    /// <param name="value">The integer value to check.</param>
+    /// <returns>True if the value matches the pattern, false otherwise.</returns>
     private bool IsPowerOfTwoPlusOne(int value)
     {
         return (value - 1 & (value - 2)) == 0;
     }
 
+    /// <summary>
+    /// Applies Voronoi-based biome generation to the heightmap, assigning heights based on proximity to Voronoi points.
+    /// </summary>
+    /// <param name="heights">The 2D heightmap array to modify.</param>
     private void ApplyVoronoiBiomes(float[,] heights)
     {
         List<Vector2> points = GenerateVoronoiPoints();
@@ -460,6 +480,12 @@ public class AdvancedTerrainGenerator : MonoBehaviour
             }
         }
     }
+
+    /// <summary>
+    /// Generates a list of Voronoi points based on the selected distribution mode.
+    /// Supports random, grid-based, or custom point distributions to create Voronoi regions.
+    /// </summary>
+    /// <returns>A list of Vector2 points representing the centers of Voronoi cells.</returns>
 
     private List<Vector2> GenerateVoronoiPoints()
     {
@@ -501,60 +527,101 @@ public class AdvancedTerrainGenerator : MonoBehaviour
         return points;
     }
 
+    /// <summary>
+    /// Applies the Marching Cubes algorithm to generate a 3D mesh representation of a scalar field
+    /// derived from the terrain heightmap. The scalar field is calculated based on the heightmap
+    /// and density falloff parameters. A mesh is then created, optimized, and displayed using a 
+    /// GameObject with a MeshFilter and MeshRenderer.
+    /// </summary>
+    /// <remarks>
+    /// The Marching Cubes algorithm is a 3D surface reconstruction technique that generates a mesh 
+    /// based on the density values of a scalar field. Each voxel in the scalar field is evaluated
+    /// to determine which edges are intersected by the surface, and triangles are generated accordingly.
+    /// 
+    /// This implementation includes the following features:
+    /// - Density values are calculated based on the vertical distance from the terrain height.
+    /// - Voxel size and density falloff are adjustable for performance and detail control.
+    /// - Degenerate triangles are removed to optimize the mesh and avoid rendering artifacts.
+    /// - A custom material can be applied to the generated mesh.
+    /// 
+    /// Debugging options are available to display details about the mesh generation process.
+    /// </remarks>
+    /// <param name="heights">A 2D array representing the terrain heightmap values normalized between 0 and 1.</param>
     private void ApplyMarchingCubes(float[,] heights)
     {
+        // Calculate the dimensions of the grid based on voxel size
         int gridWidth = Mathf.CeilToInt(width / marchingCubesVoxelSize);
         int gridLength = Mathf.CeilToInt(length / marchingCubesVoxelSize);
         int gridHeight = Mathf.CeilToInt(height / marchingCubesVoxelSize);
 
+        // Create a scalar field to hold density values
         float[,,] scalarField = new float[gridWidth, gridHeight, gridLength];
 
-        // Adjust falloffFactor as needed. A higher value can produce smoother transitions.
-        float falloffFactor = 25f;
-
+        // Fill the scalar field by sampling the terrain height
         for (int x = 0; x < gridWidth; x++)
         {
             for (int z = 0; z < gridLength; z++)
             {
+                // Map grid coordinates to the heightmap
                 int mapX = Mathf.Clamp((int)((x / (float)gridWidth) * (width - 1)), 0, width - 1);
                 int mapZ = Mathf.Clamp((int)((z / (float)gridLength) * (length - 1)), 0, length - 1);
 
+                // Get the terrain height at the mapped coordinates
                 float terrainHeight = heights[mapX, mapZ] * height;
 
                 for (int y = 0; y < gridHeight; y++)
                 {
+                    // Calculate the density value based on the distance from the terrain surface
                     float dist = Mathf.Abs(y - terrainHeight);
-                    float density = 1f - (dist / (marchingCubesVoxelSize * falloffFactor));
-                    density = Mathf.Clamp01(density);
-
-                    scalarField[x, y, z] = density;
+                    float density = 1f - (dist / (marchingCubesVoxelSize * densityFalloffFactor));
+                    density = Mathf.Clamp01(density); // Clamp to [0, 1]
+                    scalarField[x, y, z] = density;  // Assign density to the scalar field
                 }
             }
         }
 
+        // Generate the mesh using the scalar field
         Mesh marchingCubesMesh = GenerateMarchingCubesMesh(scalarField);
 
-        // Optionally remove degenerate triangles (this can help minimize holes if tiny collinearities occur)
+        // Remove degenerate triangles from the mesh (optional optimization)
         RemoveDegenerateTriangles(marchingCubesMesh);
 
+        // Create a GameObject to display the mesh
         GameObject marchingCubesObject = new GameObject("MarchingCubesMesh", typeof(MeshFilter), typeof(MeshRenderer));
         marchingCubesObject.GetComponent<MeshFilter>().mesh = marchingCubesMesh;
 
-        if (marchingCubesMaterial != null)
-        {
-            marchingCubesObject.GetComponent<MeshRenderer>().material = marchingCubesMaterial;
-        }
-        else
-        {
-            marchingCubesObject.GetComponent<MeshRenderer>().material = new Material(Shader.Find("Standard"));
-        }
+        // Apply the specified material or a default material
+        marchingCubesObject.GetComponent<MeshRenderer>().material = marchingCubesMaterial ?? new Material(Shader.Find("Standard"));
 
+        // Debug log for developer visibility
         if (enableMarchingCubesDebug)
-        {
             Debug.Log("Marching Cubes mesh generated with vertices: " + marchingCubesMesh.vertexCount);
-        }
     }
 
+    /// <summary>
+    /// Generates a 3D mesh representation from a scalar field using the Marching Cubes algorithm.
+    /// Processes the scalar field to interpolate vertices along voxel edges, determine surface triangles,
+    /// and optimize the resulting mesh by removing degenerate triangles.
+    /// </summary>
+    /// <remarks>
+    /// The Marching Cubes algorithm is a surface reconstruction technique used to extract a mesh from 
+    /// a 3D scalar field. This implementation:
+    /// - Iterates over the scalar field's voxel grid, evaluating each voxel's vertices to determine the cube configuration.
+    /// - Interpolates vertices along intersected edges based on density values.
+    /// - Uses predefined edge and triangle tables to construct mesh geometry.
+    /// - Caches vertices to improve performance and avoid duplication.
+    /// - Removes degenerate triangles (zero-area triangles) to optimize the mesh and prevent rendering artifacts.
+    /// - Recalculates normals and bounds for proper lighting and culling.
+    /// 
+    /// The resulting mesh can be used to represent isosurfaces, such as terrain or volumetric data visualizations.
+    /// </remarks>
+    /// <param name="scalarField">
+    /// A 3D array of scalar density values defining the voxel grid. The density values determine the shape 
+    /// of the isosurface extracted by the Marching Cubes algorithm.
+    /// </param>
+    /// <returns>
+    /// A UnityEngine.Mesh object representing the surface extracted from the scalar field.
+    /// </returns>
     private Mesh GenerateMarchingCubesMesh(float[,,] scalarField)
     {
         List<Vector3> vertices = new List<Vector3>();
@@ -575,44 +642,39 @@ public class AdvancedTerrainGenerator : MonoBehaviour
                     for (int i = 0; i < 8; i++)
                     {
                         Vector3 offset = GetVertexOffset(i);
-                        int ox = x + (int)offset.x;
-                        int oy = y + (int)offset.y;
-                        int oz = z + (int)offset.z;
-                        cube[i] = scalarField[ox, oy, oz];
+                        cube[i] = scalarField[x + (int)offset.x, y + (int)offset.y, z + (int)offset.z];
                     }
 
-                    // Determine the configuration of this cube
                     int cubeIndex = 0;
                     for (int i = 0; i < 8; i++)
                     {
-                        bool inside = insideBelowThreshold
-                            ? (cube[i] < marchingCubesThreshold)
-                            : (cube[i] > marchingCubesThreshold);
-
-                        if (inside)
+                        if (insideBelowThreshold ? cube[i] < marchingCubesThreshold : cube[i] > marchingCubesThreshold)
                             cubeIndex |= 1 << i;
                     }
 
-                    // If the cube is completely outside or inside the surface, skip
                     if (MarchingCubesTables.EdgeTable[cubeIndex] == 0)
                         continue;
 
-                    // Create triangles for this cube configuration
+                    // Create triangles for this cube
                     for (int i = 0; i < 16; i += 3)
                     {
                         int a0 = MarchingCubesTables.TriangleTable[cubeIndex, i];
                         if (a0 == -1) break;
+
                         int a1 = MarchingCubesTables.TriangleTable[cubeIndex, i + 1];
                         int a2 = MarchingCubesTables.TriangleTable[cubeIndex, i + 2];
 
+                        // Interpolate vertices for each edge
                         Vector3 v0 = InterpolateEdge(a0, cube, x, y, z);
                         Vector3 v1 = InterpolateEdge(a1, cube, x, y, z);
                         Vector3 v2 = InterpolateEdge(a2, cube, x, y, z);
 
+                        // Add vertices and cache them
                         int vIndex0 = AddVertex(vertices, vertexCache, v0);
                         int vIndex1 = AddVertex(vertices, vertexCache, v1);
                         int vIndex2 = AddVertex(vertices, vertexCache, v2);
 
+                        // Add triangle indices
                         triangles.Add(vIndex0);
                         triangles.Add(vIndex1);
                         triangles.Add(vIndex2);
@@ -621,23 +683,46 @@ public class AdvancedTerrainGenerator : MonoBehaviour
             }
         }
 
-        Mesh mesh = new Mesh();
-        mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+        // Create and configure the mesh
+        Mesh mesh = new Mesh
+        {
+            indexFormat = UnityEngine.Rendering.IndexFormat.UInt32
+        };
+
         mesh.vertices = vertices.ToArray();
         mesh.triangles = triangles.ToArray();
+
+        // Remove degenerate triangles to prevent rendering issues
+        RemoveDegenerateTriangles(mesh);
+
+        // Recalculate normals and bounds
         mesh.RecalculateNormals();
         mesh.RecalculateBounds();
-
-        // Attempt to remove degenerates to improve mesh quality
-        RemoveDegenerateTriangles(mesh);
 
         return mesh;
     }
 
 
+    /// <summary>
+    /// Adds a unique vertex to the vertex list by rounding its position to prevent floating-point precision issues.
+    /// Returns the index of the vertex, adding it to the list and cache if it doesn't already exist.
+    /// </summary>
+
     private int AddVertex(List<Vector3> vertices, Dictionary<(float, float, float), int> cache, Vector3 vertex)
     {
-        var key = (vertex.x, vertex.y, vertex.z);
+        // Round the vertex position to avoid floating-point precision issues
+        float RoundToDecimals(float value, int decimals)
+        {
+            float factor = Mathf.Pow(10, decimals);
+            return Mathf.Round(value * factor) / factor;
+        }
+
+        var key = (
+            RoundToDecimals(vertex.x, 6),
+            RoundToDecimals(vertex.y, 6),
+            RoundToDecimals(vertex.z, 6)
+        );
+
         if (cache.TryGetValue(key, out int index))
             return index;
 
@@ -646,6 +731,11 @@ public class AdvancedTerrainGenerator : MonoBehaviour
         cache[key] = index;
         return index;
     }
+
+    /// <summary>
+    /// Computes the interpolated position along an edge of a cube based on scalar field values.
+    /// Uses the threshold value to determine the position between two vertices.
+    /// </summary>
 
     private Vector3 InterpolateEdge(int edge, float[] cube, int x, int y, int z)
     {
@@ -667,16 +757,20 @@ public class AdvancedTerrainGenerator : MonoBehaviour
     /// </summary>
     private Vector3 VertexInterp(float isolevel, Vector3 p1, Vector3 p2, float valp1, float valp2)
     {
-        float epsilon = 1e-12f;
+        // Handle cases where vertices are on the isosurface
+        if (Mathf.Abs(isolevel - valp1) < Mathf.Epsilon) return p1;
+        if (Mathf.Abs(isolevel - valp2) < Mathf.Epsilon) return p2;
+        if (Mathf.Abs(valp1 - valp2) < Mathf.Epsilon) return p1;
 
-        // If the iso-value is extremely close to one of the end values, return that end directly
-        if (Mathf.Abs(isolevel - valp1) < epsilon) return p1;
-        if (Mathf.Abs(isolevel - valp2) < epsilon) return p2;
-        if (Mathf.Abs(valp1 - valp2) < epsilon) return p1;
-
+        // Perform linear interpolation
         float mu = (isolevel - valp1) / (valp2 - valp1);
         return p1 + mu * (p2 - p1);
     }
+
+    /// <summary>
+    /// Calculates the relative offset of a vertex within a cube based on its index.
+    /// Uses bitwise operations to determine the position along the x, y, and z axes.
+    /// </summary>
 
     private Vector3 GetVertexOffset(int vertexIndex)
     {
@@ -687,7 +781,6 @@ public class AdvancedTerrainGenerator : MonoBehaviour
         );
     }
 
-
     /// <summary>
     /// Removes degenerate (zero-area) triangles which can help reduce tiny cracks.
     /// </summary>
@@ -696,29 +789,32 @@ public class AdvancedTerrainGenerator : MonoBehaviour
         List<Vector3> verts = new List<Vector3>(mesh.vertices);
         List<int> tris = new List<int>(mesh.triangles);
 
-        for (int i = 0; i < tris.Count; i += 3)
+        for (int i = tris.Count - 3; i >= 0; i -= 3)
         {
             Vector3 v0 = verts[tris[i]];
             Vector3 v1 = verts[tris[i + 1]];
             Vector3 v2 = verts[tris[i + 2]];
 
+            // Check for degenerate (zero-area) triangles
             Vector3 cross = Vector3.Cross(v1 - v0, v2 - v0);
-            float area = cross.magnitude * 0.5f;
-            if (area < 1e-14f) // Very tiny area threshold
+            if (cross.sqrMagnitude < 1e-6f) // Very small threshold for zero area
             {
-                // Mark these as degenerate
-                tris[i] = 0;
-                tris[i + 1] = 0;
-                tris[i + 2] = 0;
+                tris.RemoveAt(i + 2);
+                tris.RemoveAt(i + 1);
+                tris.RemoveAt(i);
             }
         }
-
-        tris.RemoveAll(t => t == 0);
 
         mesh.triangles = tris.ToArray();
         mesh.RecalculateNormals();
         mesh.RecalculateBounds();
     }
+
+    /// <summary>
+    /// Normalizes the values in a 2D heightmap array to a range between 0 and 1.
+    /// Finds the minimum and maximum height values, then rescales all heights proportionally.
+    /// </summary>
+    /// <param name="heights">A 2D array of height values to normalize.</param>
 
     private void NormalizeHeights(float[,] heights)
     {
