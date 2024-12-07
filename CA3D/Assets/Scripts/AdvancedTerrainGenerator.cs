@@ -509,7 +509,8 @@ public class AdvancedTerrainGenerator : MonoBehaviour
 
         float[,,] scalarField = new float[gridWidth, gridHeight, gridLength];
 
-        float falloffFactor = 5f; // Adjust as necessary
+        // Adjust falloffFactor as needed. A higher value can produce smoother transitions.
+        float falloffFactor = 25f;
 
         for (int x = 0; x < gridWidth; x++)
         {
@@ -533,7 +534,7 @@ public class AdvancedTerrainGenerator : MonoBehaviour
 
         Mesh marchingCubesMesh = GenerateMarchingCubesMesh(scalarField);
 
-        // Optional: Remove degenerate triangles to help prevent holes
+        // Optionally remove degenerate triangles (this can help minimize holes if tiny collinearities occur)
         RemoveDegenerateTriangles(marchingCubesMesh);
 
         GameObject marchingCubesObject = new GameObject("MarchingCubesMesh", typeof(MeshFilter), typeof(MeshRenderer));
@@ -580,6 +581,7 @@ public class AdvancedTerrainGenerator : MonoBehaviour
                         cube[i] = scalarField[ox, oy, oz];
                     }
 
+                    // Determine the configuration of this cube
                     int cubeIndex = 0;
                     for (int i = 0; i < 8; i++)
                     {
@@ -591,6 +593,7 @@ public class AdvancedTerrainGenerator : MonoBehaviour
                             cubeIndex |= 1 << i;
                     }
 
+                    // If the cube is completely outside or inside the surface, skip
                     if (MarchingCubesTables.EdgeTable[cubeIndex] == 0)
                         continue;
 
@@ -625,8 +628,12 @@ public class AdvancedTerrainGenerator : MonoBehaviour
         mesh.RecalculateNormals();
         mesh.RecalculateBounds();
 
+        // Attempt to remove degenerates to improve mesh quality
+        RemoveDegenerateTriangles(mesh);
+
         return mesh;
     }
+
 
     private int AddVertex(List<Vector3> vertices, Dictionary<(float, float, float), int> cache, Vector3 vertex)
     {
@@ -654,23 +661,20 @@ public class AdvancedTerrainGenerator : MonoBehaviour
         return VertexInterp(marchingCubesThreshold, p0 * marchingCubesVoxelSize, p1 * marchingCubesVoxelSize, valp0, valp1);
     }
 
+    /// <summary>
+    /// VertexInterp function following Paul Bourke's logic closely.
+    /// P = p1 + (isolevel - valp1)*(p2 - p1)/(valp2 - valp1)
+    /// </summary>
     private Vector3 VertexInterp(float isolevel, Vector3 p1, Vector3 p2, float valp1, float valp2)
     {
-        float epsilon = 1e-6f;
+        float epsilon = 1e-12f;
 
-        if (Mathf.Abs(isolevel - valp1) < epsilon)
-            return p1;
-        if (Mathf.Abs(isolevel - valp2) < epsilon)
-            return p2;
+        // If the iso-value is extremely close to one of the end values, return that end directly
+        if (Mathf.Abs(isolevel - valp1) < epsilon) return p1;
+        if (Mathf.Abs(isolevel - valp2) < epsilon) return p2;
+        if (Mathf.Abs(valp1 - valp2) < epsilon) return p1;
 
-        float dv = valp2 - valp1;
-        if (Mathf.Abs(dv) < epsilon)
-            return p1;
-
-        float mu = (isolevel - valp1) / dv;
-        // Consider not clamping mu if it leads to degeneracy:
-        // mu = Mathf.Clamp01(mu);
-
+        float mu = (isolevel - valp1) / (valp2 - valp1);
         return p1 + mu * (p2 - p1);
     }
 
@@ -683,14 +687,15 @@ public class AdvancedTerrainGenerator : MonoBehaviour
         );
     }
 
+
     /// <summary>
-    /// Remove degenerate triangles (zero-area) from the mesh.
-    /// This can help close up certain small holes caused by near-collinear vertices.
+    /// Removes degenerate (zero-area) triangles which can help reduce tiny cracks.
     /// </summary>
     private void RemoveDegenerateTriangles(Mesh mesh)
     {
         List<Vector3> verts = new List<Vector3>(mesh.vertices);
         List<int> tris = new List<int>(mesh.triangles);
+
         for (int i = 0; i < tris.Count; i += 3)
         {
             Vector3 v0 = verts[tris[i]];
@@ -699,17 +704,15 @@ public class AdvancedTerrainGenerator : MonoBehaviour
 
             Vector3 cross = Vector3.Cross(v1 - v0, v2 - v0);
             float area = cross.magnitude * 0.5f;
-            // Remove triangles with extremely small area
-            if (area < 1e-12f)
+            if (area < 1e-14f) // Very tiny area threshold
             {
-                // Mark this triangle as degenerate
+                // Mark these as degenerate
                 tris[i] = 0;
                 tris[i + 1] = 0;
                 tris[i + 2] = 0;
             }
         }
 
-        // Remove all zeroed indices
         tris.RemoveAll(t => t == 0);
 
         mesh.triangles = tris.ToArray();

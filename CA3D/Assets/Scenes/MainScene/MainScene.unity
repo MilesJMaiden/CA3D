@@ -528,7 +528,7 @@ MonoBehaviour:
   perlinOffsetX: 0
   perlinOffsetY: 0
   perlinBlendingMode: 0
-  useFractalBrownianMotion: 1
+  useFractalBrownianMotion: 0
   fBmLayers: 4
   fBmBaseScale: 20
   fBmAmplitudeDecay: 0.5
@@ -575,7 +575,7 @@ MonoBehaviour:
   marchingCubesMaterial: {fileID: 2100000, guid: bdcf64ce06ec0f5469d5168dd239d75e, type: 2}
   insideBelowThreshold: 1
   marchingCubesThreshold: 0.5
-  marchingCubesVoxelSize: 5
+  marchingCubesVoxelSize: 1
   densityFalloffFactor: 5
   scalarFieldBlendingMode: 0
   additionalScalarFields: []
