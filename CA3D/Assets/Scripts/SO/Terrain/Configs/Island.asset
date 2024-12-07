@@ -1,0 +1,75 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4dfd7167753e54d498f4f976b989ba22, type: 3}
+  m_Name: Island
+  m_EditorClassIdentifier: 
+  usePerlinNoise: 1
+  perlinLayers: 3
+  perlinBaseScale: 50
+  perlinAmplitudeDecay: 0.7
+  perlinFrequencyGrowth: 1.5
+  perlinOffset: {x: 20, y: 20}
+  useFractalBrownianMotion: 1
+  fBmLayers: 4
+  fBmBaseScale: 30
+  fBmAmplitudeDecay: 0.5
+  fBmFrequencyGrowth: 2
+  fBmOffset: {x: 15, y: 15}
+  useMidPointDisplacement: 0
+  displacementFactor: 0
+  displacementDecayRate: 0
+  randomSeed: 0
+  useVoronoiBiomes: 1
+  voronoiCellCount: 6
+  voronoiHeightRange: {x: 0.1, y: 0.8}
+  voronoiFalloffCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0.0057678223
+      value: 0.0028190613
+      inSlope: 2.552114
+      outSlope: 2.552114
+      tangentMode: 34
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0.33333334
+    - serializedVersion: 3
+      time: 0.21798974
+      value: 0.5444336
+      inSlope: 1.2565033
+      outSlope: 1.2565033
+      tangentMode: 34
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    - serializedVersion: 3
+      time: 0.7952812
+      value: 0.52185726
+      inSlope: -1.3940204
+      outSlope: -1.3940204
+      tangentMode: 34
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    - serializedVersion: 3
+      time: 1
+      value: -0.040901184
+      inSlope: -2.7489336
+      outSlope: -2.7489336
+      tangentMode: 34
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4

@@ -10,24 +10,24 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 4dfd7167753e54d498f4f976b989ba22, type: 3}
-  m_Name: Mountains 2
+  m_Name: Desert Dunes
   m_EditorClassIdentifier: 
-  usePerlinNoise: 0
-  perlinLayers: 0
-  perlinBaseScale: 0
-  perlinAmplitudeDecay: 0
-  perlinFrequencyGrowth: 0
-  perlinOffset: {x: 0, y: 0}
+  usePerlinNoise: 1
+  perlinLayers: 2
+  perlinBaseScale: 40
+  perlinAmplitudeDecay: 0.9
+  perlinFrequencyGrowth: 1.8
+  perlinOffset: {x: 5, y: 5}
   useFractalBrownianMotion: 0
   fBmLayers: 0
   fBmBaseScale: 0
   fBmAmplitudeDecay: 0
   fBmFrequencyGrowth: 0
   fBmOffset: {x: 0, y: 0}
-  useMidPointDisplacement: 0
-  displacementFactor: 0
-  displacementDecayRate: 0
-  randomSeed: 0
+  useMidPointDisplacement: 1
+  displacementFactor: 0.8
+  displacementDecayRate: 0.4
+  randomSeed: 789
   useVoronoiBiomes: 0
   voronoiCellCount: 0
   voronoiHeightRange: {x: 0, y: 0}

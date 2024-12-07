@@ -10,13 +10,13 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 4dfd7167753e54d498f4f976b989ba22, type: 3}
-  m_Name: Mountains
+  m_Name: Flat Plains
   m_EditorClassIdentifier: 
-  usePerlinNoise: 0
-  perlinLayers: 0
-  perlinBaseScale: 0
-  perlinAmplitudeDecay: 0
-  perlinFrequencyGrowth: 0
+  usePerlinNoise: 1
+  perlinLayers: 1
+  perlinBaseScale: 1
+  perlinAmplitudeDecay: 0.1
+  perlinFrequencyGrowth: 0.7
   perlinOffset: {x: 0, y: 0}
   useFractalBrownianMotion: 0
   fBmLayers: 0
