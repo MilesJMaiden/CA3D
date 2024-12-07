@@ -583,9 +583,6 @@ public class AdvancedTerrainGenerator : MonoBehaviour
         // Generate the mesh using the scalar field
         Mesh marchingCubesMesh = GenerateMarchingCubesMesh(scalarField);
 
-        // Remove degenerate triangles from the mesh (optional optimization)
-        RemoveDegenerateTriangles(marchingCubesMesh);
-
         // Create a GameObject to display the mesh
         GameObject marchingCubesObject = new GameObject("MarchingCubesMesh", typeof(MeshFilter), typeof(MeshRenderer));
         marchingCubesObject.GetComponent<MeshFilter>().mesh = marchingCubesMesh;
@@ -692,9 +689,6 @@ public class AdvancedTerrainGenerator : MonoBehaviour
         mesh.vertices = vertices.ToArray();
         mesh.triangles = triangles.ToArray();
 
-        // Remove degenerate triangles to prevent rendering issues
-        RemoveDegenerateTriangles(mesh);
-
         // Recalculate normals and bounds
         mesh.RecalculateNormals();
         mesh.RecalculateBounds();
@@ -779,35 +773,6 @@ public class AdvancedTerrainGenerator : MonoBehaviour
             (vertexIndex & 2) == 2 ? 1 : 0,
             (vertexIndex & 4) == 4 ? 1 : 0
         );
-    }
-
-    /// <summary>
-    /// Removes degenerate (zero-area) triangles which can help reduce tiny cracks.
-    /// </summary>
-    private void RemoveDegenerateTriangles(Mesh mesh)
-    {
-        List<Vector3> verts = new List<Vector3>(mesh.vertices);
-        List<int> tris = new List<int>(mesh.triangles);
-
-        for (int i = tris.Count - 3; i >= 0; i -= 3)
-        {
-            Vector3 v0 = verts[tris[i]];
-            Vector3 v1 = verts[tris[i + 1]];
-            Vector3 v2 = verts[tris[i + 2]];
-
-            // Check for degenerate (zero-area) triangles
-            Vector3 cross = Vector3.Cross(v1 - v0, v2 - v0);
-            if (cross.sqrMagnitude < 1e-6f) // Very small threshold for zero area
-            {
-                tris.RemoveAt(i + 2);
-                tris.RemoveAt(i + 1);
-                tris.RemoveAt(i);
-            }
-        }
-
-        mesh.triangles = tris.ToArray();
-        mesh.RecalculateNormals();
-        mesh.RecalculateBounds();
     }
 
     /// <summary>
