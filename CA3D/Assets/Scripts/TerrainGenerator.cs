@@ -13,6 +13,10 @@ public class TerrainGenerator : ITerrainGenerator
         heightModifiers = new List<IHeightModifier>();
         if (settings.usePerlinNoise) heightModifiers.Add(new PerlinNoiseModifier());
         if (settings.useFractalBrownianMotion) heightModifiers.Add(new FractalBrownianMotionModifier());
+
+        if (settings.useMidPointDisplacement) heightModifiers.Add(new MidpointDisplacementModifier());
+        if (settings.useVoronoiBiomes) heightModifiers.Add(new VoronoiBiomesModifier());
+
         // Add additional modifiers here
     }
 

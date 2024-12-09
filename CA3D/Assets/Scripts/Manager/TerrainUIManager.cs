@@ -1,43 +1,62 @@
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using System.Collections.Generic;
+using System.Linq;
 
+/// <summary>
+/// Manages the UI for adjusting terrain generation settings and regenerates the terrain dynamically
+/// whenever valid inputs are modified.
+/// </summary>
 public class TerrainUIManager : MonoBehaviour
 {
+    public enum DistributionMode
+    {
+        Random,
+        Grid,
+        Custom
+    }
+
+    #region UI References
+
     [Header("UI References")]
     public TMP_Dropdown configDropdown;
 
+    // Perlin Noise
     public TMP_InputField perlinLayersField;
     public TMP_InputField perlinBaseScaleField;
     public TMP_InputField perlinAmplitudeDecayField;
     public TMP_InputField perlinFrequencyGrowthField;
     public TMP_InputField perlinOffsetXField;
     public TMP_InputField perlinOffsetYField;
-
     public Toggle usePerlinNoiseToggle;
 
+    // Fractal Brownian Motion
     public TMP_InputField fBmLayersField;
     public TMP_InputField fBmBaseScaleField;
     public TMP_InputField fBmAmplitudeDecayField;
     public TMP_InputField fBmFrequencyGrowthField;
     public TMP_InputField fBmOffsetXField;
     public TMP_InputField fBmOffsetYField;
-
     public Toggle useFractalBrownianMotionToggle;
 
+    // Midpoint Displacement
     public TMP_InputField displacementFactorField;
     public TMP_InputField displacementDecayRateField;
     public TMP_InputField randomSeedField;
-
     public Toggle useMidPointDisplacementToggle;
 
+    // Voronoi Biomes
     public TMP_InputField voronoiCellCountField;
     public TMP_InputField voronoiHeightRangeMinField;
     public TMP_InputField voronoiHeightRangeMaxField;
 
+    public TMP_Dropdown voronoiDistributionModeDropdown;
+    public TMP_InputField customVoronoiPointsField;
+
     public Toggle useVoronoiBiomesToggle;
 
-    public Button generateButton;
+    public TMP_Text errorMessage; // TMP_Text for displaying errors
 
     [Header("Terrain Generator Reference")]
     public TerrainGeneratorManager terrainGeneratorManager;
@@ -45,14 +64,31 @@ public class TerrainUIManager : MonoBehaviour
     [Header("Available Configurations")]
     public TerrainGenerationSettings[] availableConfigs;
 
+    #endregion
+
+    #region Private Fields
+
+    private TerrainGenerationSettings currentSettings;
+
+    #endregion
+
+    #region Unity Methods
+
     private void Start()
     {
         PopulateConfigDropdown();
         LoadDefaultValues();
-        configDropdown.onValueChanged.AddListener(OnConfigSelected);
-        generateButton.onClick.AddListener(OnGenerateButtonPressed);
+        PopulateVoronoiDistributionDropdown();
+        AddListeners();
     }
 
+    #endregion
+
+    #region Configuration Management
+
+    /// <summary>
+    /// Populates the configuration dropdown with available settings and sets up a listener for selection changes.
+    /// </summary>
     private void PopulateConfigDropdown()
     {
         configDropdown.ClearOptions();
@@ -64,114 +100,303 @@ public class TerrainUIManager : MonoBehaviour
 
         configDropdown.value = 0;
         configDropdown.RefreshShownValue();
+
+        // Add listener to handle selection changes
+        configDropdown.onValueChanged.AddListener(OnDropdownValueChanged);
     }
 
-    private void OnConfigSelected(int index)
+    /// <summary>
+    /// Populates the Voronoi distribution dropdown with options from the DistributionMode enum.
+    /// </summary>
+    private void PopulateVoronoiDistributionDropdown()
+    {
+        voronoiDistributionModeDropdown.ClearOptions();
+
+        foreach (var mode in System.Enum.GetNames(typeof(DistributionMode)))
+        {
+            voronoiDistributionModeDropdown.options.Add(new TMP_Dropdown.OptionData(mode));
+        }
+
+        voronoiDistributionModeDropdown.value = 0;
+        voronoiDistributionModeDropdown.RefreshShownValue();
+    }
+
+
+
+    /// <summary>
+    /// Handles dropdown selection changes by loading the selected configuration.
+    /// </summary>
+    /// <param name="index">The selected index of the dropdown.</param>
+    private void OnDropdownValueChanged(int index)
     {
         if (index < 0 || index >= availableConfigs.Length)
         {
-            Debug.LogError("Invalid configuration index selected.");
+            DisplayError("Invalid configuration selected.");
             return;
         }
 
+        // Load the selected configuration
         LoadValuesFromConfig(availableConfigs[index]);
+
+        // Clear any error messages
+        ClearError();
     }
 
+    /// <summary>
+    /// Loads the default values from the first configuration.
+    /// </summary>
     private void LoadDefaultValues()
     {
         if (availableConfigs == null || availableConfigs.Length == 0)
         {
-            Debug.LogError("No configurations available!");
+            DisplayError("No configurations available!");
             return;
         }
 
         LoadValuesFromConfig(availableConfigs[0]);
     }
 
+    /// <summary>
+    /// Loads values from a specified configuration into the UI fields and settings.
+    /// </summary>
+    /// <param name="config">The configuration to load.</param>
     private void LoadValuesFromConfig(TerrainGenerationSettings config)
     {
-        // Perlin Noise
-        usePerlinNoiseToggle.isOn = config.usePerlinNoise;
-        perlinLayersField.text = config.perlinLayers.ToString();
-        perlinBaseScaleField.text = config.perlinBaseScale.ToString();
-        perlinAmplitudeDecayField.text = config.perlinAmplitudeDecay.ToString();
-        perlinFrequencyGrowthField.text = config.perlinFrequencyGrowth.ToString();
-        perlinOffsetXField.text = config.perlinOffset.x.ToString();
-        perlinOffsetYField.text = config.perlinOffset.y.ToString();
+        currentSettings = ScriptableObject.CreateInstance<TerrainGenerationSettings>();
+        CopySettings(config, currentSettings);
 
-        // Fractal Brownian Motion
-        useFractalBrownianMotionToggle.isOn = config.useFractalBrownianMotion;
-        fBmLayersField.text = config.fBmLayers.ToString();
-        fBmBaseScaleField.text = config.fBmBaseScale.ToString();
-        fBmAmplitudeDecayField.text = config.fBmAmplitudeDecay.ToString();
-        fBmFrequencyGrowthField.text = config.fBmFrequencyGrowth.ToString();
-        fBmOffsetXField.text = config.fBmOffset.x.ToString();
-        fBmOffsetYField.text = config.fBmOffset.y.ToString();
+        // Update UI fields
+        SetField(usePerlinNoiseToggle, config.usePerlinNoise);
+        SetField(perlinLayersField, config.perlinLayers.ToString());
+        SetField(perlinBaseScaleField, config.perlinBaseScale.ToString());
+        SetField(perlinAmplitudeDecayField, config.perlinAmplitudeDecay.ToString());
+        SetField(perlinFrequencyGrowthField, config.perlinFrequencyGrowth.ToString());
+        SetField(perlinOffsetXField, config.perlinOffset.x.ToString());
+        SetField(perlinOffsetYField, config.perlinOffset.y.ToString());
 
-        // Midpoint Displacement
-        useMidPointDisplacementToggle.isOn = config.useMidPointDisplacement;
-        displacementFactorField.text = config.displacementFactor.ToString();
-        displacementDecayRateField.text = config.displacementDecayRate.ToString();
-        randomSeedField.text = config.randomSeed.ToString();
+        SetField(useFractalBrownianMotionToggle, config.useFractalBrownianMotion);
+        SetField(fBmLayersField, config.fBmLayers.ToString());
+        SetField(fBmBaseScaleField, config.fBmBaseScale.ToString());
+        SetField(fBmAmplitudeDecayField, config.fBmAmplitudeDecay.ToString());
+        SetField(fBmFrequencyGrowthField, config.fBmFrequencyGrowth.ToString());
+        SetField(fBmOffsetXField, config.fBmOffset.x.ToString());
+        SetField(fBmOffsetYField, config.fBmOffset.y.ToString());
 
-        // Voronoi Biomes
-        useVoronoiBiomesToggle.isOn = config.useVoronoiBiomes;
-        voronoiCellCountField.text = config.voronoiCellCount.ToString();
-        voronoiHeightRangeMinField.text = config.voronoiHeightRange.x.ToString();
-        voronoiHeightRangeMaxField.text = config.voronoiHeightRange.y.ToString();
+        SetField(useMidPointDisplacementToggle, config.useMidPointDisplacement);
+        SetField(displacementFactorField, config.displacementFactor.ToString());
+        SetField(displacementDecayRateField, config.displacementDecayRate.ToString());
+        SetField(randomSeedField, config.randomSeed.ToString());
+
+        SetField(useVoronoiBiomesToggle, config.useVoronoiBiomes);
+        SetField(voronoiCellCountField, config.voronoiCellCount.ToString());
+        SetField(voronoiHeightRangeMinField, config.voronoiHeightRange.x.ToString());
+        SetField(voronoiHeightRangeMaxField, config.voronoiHeightRange.y.ToString());
+
+        voronoiDistributionModeDropdown.value = (int)config.voronoiDistributionMode;
+        customVoronoiPointsField.text = string.Join(";", config.customVoronoiPoints.Select(p => $"{p.x},{p.y}"));
     }
 
-    private void OnGenerateButtonPressed()
+
+    #endregion
+
+    #region Input Field Validation
+
+    /// <summary>
+    /// Adds listeners to all UI elements for validation and regeneration.
+    /// </summary>
+    private void AddListeners()
     {
-        if (terrainGeneratorManager == null)
+        AddValidatedFieldListener(perlinLayersField, value => currentSettings.perlinLayers = int.Parse(value), 1, 100);
+        AddValidatedFieldListener(perlinBaseScaleField, value => currentSettings.perlinBaseScale = float.Parse(value), 0.1f, 500f);
+        AddValidatedFieldListener(perlinAmplitudeDecayField, value => currentSettings.perlinAmplitudeDecay = float.Parse(value), 0f, 1f);
+        AddValidatedFieldListener(perlinFrequencyGrowthField, value => currentSettings.perlinFrequencyGrowth = float.Parse(value), 0.1f, 10f);
+
+        AddValidatedFieldListener(fBmLayersField, value => currentSettings.fBmLayers = int.Parse(value), 1, 100);
+        AddValidatedFieldListener(fBmBaseScaleField, value => currentSettings.fBmBaseScale = float.Parse(value), 0.1f, 500f);
+
+        AddValidatedFieldListener(displacementFactorField, value => currentSettings.displacementFactor = float.Parse(value), 0.1f, 10f);
+        AddValidatedFieldListener(displacementDecayRateField, value => currentSettings.displacementDecayRate = float.Parse(value), 0f, 1f);
+        AddValidatedFieldListener(randomSeedField, value => currentSettings.randomSeed = int.Parse(value), 0, 10000);
+
+        AddValidatedFieldListener(voronoiCellCountField, value => currentSettings.voronoiCellCount = int.Parse(value), 1, 100);
+        AddValidatedFieldListener(voronoiHeightRangeMinField, value => currentSettings.voronoiHeightRange.x = float.Parse(value), 0f, 1f);
+        AddValidatedFieldListener(voronoiHeightRangeMaxField, value => currentSettings.voronoiHeightRange.y = float.Parse(value), 0f, 1f);
+
+        AddInputFieldListener(customVoronoiPointsField, value =>
         {
-            Debug.LogError("Terrain Generator Manager not assigned!");
-            return;
-        }
+            try
+            {
+                currentSettings.customVoronoiPoints = ParseCustomVoronoiPoints(value);
+                ClearError();
+                RegenerateTerrain();
+            }
+            catch
+            {
+                DisplayError("Invalid custom Voronoi points format. Use 'x1,y1;x2,y2'.");
+            }
+        });
 
-        // Apply updated settings
-        TerrainGenerationSettings updatedSettings = ScriptableObject.CreateInstance<TerrainGenerationSettings>();
+        AddDropdownListener(voronoiDistributionModeDropdown, value =>
+        {
+            currentSettings.voronoiDistributionMode = (TerrainGenerationSettings.DistributionMode)(int)(DistributionMode)value;
+            RegenerateTerrain();
+        });
 
-        // Perlin Noise
-        updatedSettings.usePerlinNoise = usePerlinNoiseToggle.isOn;
-        updatedSettings.perlinLayers = int.Parse(perlinLayersField.text);
-        updatedSettings.perlinBaseScale = float.Parse(perlinBaseScaleField.text);
-        updatedSettings.perlinAmplitudeDecay = float.Parse(perlinAmplitudeDecayField.text);
-        updatedSettings.perlinFrequencyGrowth = float.Parse(perlinFrequencyGrowthField.text);
-        updatedSettings.perlinOffset = new Vector2(
-            float.Parse(perlinOffsetXField.text),
-            float.Parse(perlinOffsetYField.text)
-        );
-
-        // Fractal Brownian Motion
-        updatedSettings.useFractalBrownianMotion = useFractalBrownianMotionToggle.isOn;
-        updatedSettings.fBmLayers = int.Parse(fBmLayersField.text);
-        updatedSettings.fBmBaseScale = float.Parse(fBmBaseScaleField.text);
-        updatedSettings.fBmAmplitudeDecay = float.Parse(fBmAmplitudeDecayField.text);
-        updatedSettings.fBmFrequencyGrowth = float.Parse(fBmFrequencyGrowthField.text);
-        updatedSettings.fBmOffset = new Vector2(
-            float.Parse(fBmOffsetXField.text),
-            float.Parse(fBmOffsetYField.text)
-        );
-
-        // Midpoint Displacement
-        updatedSettings.useMidPointDisplacement = useMidPointDisplacementToggle.isOn;
-        updatedSettings.displacementFactor = float.Parse(displacementFactorField.text);
-        updatedSettings.displacementDecayRate = float.Parse(displacementDecayRateField.text);
-        updatedSettings.randomSeed = int.Parse(randomSeedField.text);
-
-        // Voronoi Biomes
-        updatedSettings.useVoronoiBiomes = useVoronoiBiomesToggle.isOn;
-        updatedSettings.voronoiCellCount = int.Parse(voronoiCellCountField.text);
-        updatedSettings.voronoiHeightRange = new Vector2(
-            float.Parse(voronoiHeightRangeMinField.text),
-            float.Parse(voronoiHeightRangeMaxField.text)
-        );
-
-        // Pass the new settings to the Terrain Generator Manager
-        terrainGeneratorManager.terrainSettings = updatedSettings;
-        terrainGeneratorManager.GenerateTerrain();
-
-        Debug.Log("Terrain generated with updated settings.");
+        AddFieldListener(usePerlinNoiseToggle, value => currentSettings.usePerlinNoise = value);
+        AddFieldListener(useFractalBrownianMotionToggle, value => currentSettings.useFractalBrownianMotion = value);
+        AddFieldListener(useMidPointDisplacementToggle, value => currentSettings.useMidPointDisplacement = value);
+        AddFieldListener(useVoronoiBiomesToggle, value => currentSettings.useVoronoiBiomes = value);
     }
+    /// <summary>
+    /// Adds validation logic to input fields, ensuring valid input and terrain regeneration.
+    /// </summary>
+    private void AddValidatedFieldListener(TMP_InputField field, System.Action<string> onChanged, float min, float max)
+    {
+        field.onEndEdit.AddListener(value =>
+        {
+            if (float.TryParse(value, out float result) && result >= min && result <= max)
+            {
+                onChanged(value);
+                ClearError();
+                RegenerateTerrain();
+            }
+            else
+            {
+                DisplayError($"Invalid input for {field.name}. Must be between {min} and {max}.");
+                field.text = min.ToString(); // Reset to minimum valid value
+            }
+        });
+    }
+
+
+    /// <summary>
+    /// Adds a listener to a dropdown field to update settings and regenerate terrain.
+    /// </summary>
+    private void AddDropdownListener(TMP_Dropdown dropdown, System.Action<int> onChanged)
+    {
+        dropdown.onValueChanged.AddListener(value =>
+        {
+            onChanged(value);
+            ClearError();
+            RegenerateTerrain();
+        });
+    }
+
+    /// <summary>
+    /// Adds a listener to an input field to update settings and regenerate terrain.
+    /// </summary>
+    private void AddInputFieldListener(TMP_InputField field, System.Action<string> onChanged)
+    {
+        field.onEndEdit.AddListener(value =>
+        {
+            onChanged(value);
+        });
+    }
+
+    /// <summary>
+    /// Adds a listener to a toggle field to update settings and regenerate terrain.
+    /// </summary>
+    private void AddFieldListener(Toggle toggle, System.Action<bool> onChanged)
+    {
+        toggle.onValueChanged.AddListener(value =>
+        {
+            onChanged(value);
+            ClearError();
+            RegenerateTerrain();
+        });
+    }
+
+    #endregion
+
+    #region Terrain Regeneration
+
+    /// <summary>
+    /// Regenerates the terrain with the current settings.
+    /// </summary>
+    private void RegenerateTerrain()
+    {
+        terrainGeneratorManager.terrainSettings = currentSettings;
+        terrainGeneratorManager.GenerateTerrain();
+    }
+
+    #endregion
+
+    #region Error Handling
+
+    /// <summary>
+    /// Displays an error message in the UI.
+    /// </summary>
+    /// <param name="message">The error message to display.</param>
+    private void DisplayError(string message)
+    {
+        errorMessage.text = message;
+        errorMessage.gameObject.SetActive(true);
+    }
+
+    /// <summary>
+    /// Clears any error messages in the UI.
+    /// </summary>
+    private void ClearError()
+    {
+        errorMessage.text = "";
+        errorMessage.gameObject.SetActive(false);
+    }
+
+    #endregion
+
+    #region Helper Methods
+
+    private void SetField(TMP_InputField field, string value) => field.text = value;
+    private void SetField(Toggle toggle, bool value) => toggle.isOn = value;
+
+    /// <summary>
+    /// Parses a semicolon-separated list of custom Voronoi points into a list of Vector2.
+    /// </summary>
+    private List<Vector2> ParseCustomVoronoiPoints(string value)
+    {
+        var points = new List<Vector2>();
+        var pairs = value.Split(';');
+        foreach (var pair in pairs)
+        {
+            var coords = pair.Split(',');
+            if (coords.Length == 2 && float.TryParse(coords[0], out float x) && float.TryParse(coords[1], out float y))
+            {
+                points.Add(new Vector2(x, y));
+            }
+        }
+        return points;
+    }
+
+
+
+    private void CopySettings(TerrainGenerationSettings source, TerrainGenerationSettings target)
+    {
+        target.usePerlinNoise = source.usePerlinNoise;
+        target.perlinLayers = source.perlinLayers;
+        target.perlinBaseScale = source.perlinBaseScale;
+        target.perlinAmplitudeDecay = source.perlinAmplitudeDecay;
+        target.perlinFrequencyGrowth = source.perlinFrequencyGrowth;
+        target.perlinOffset = source.perlinOffset;
+
+        target.useFractalBrownianMotion = source.useFractalBrownianMotion;
+        target.fBmLayers = source.fBmLayers;
+        target.fBmBaseScale = source.fBmBaseScale;
+        target.fBmAmplitudeDecay = source.fBmAmplitudeDecay;
+        target.fBmFrequencyGrowth = source.fBmFrequencyGrowth;
+        target.fBmOffset = source.fBmOffset;
+
+        target.useMidPointDisplacement = source.useMidPointDisplacement;
+        target.displacementFactor = source.displacementFactor;
+        target.displacementDecayRate = source.displacementDecayRate;
+        target.randomSeed = source.randomSeed;
+
+        target.useVoronoiBiomes = source.useVoronoiBiomes;
+        target.voronoiCellCount = source.voronoiCellCount;
+        target.voronoiHeightRange = source.voronoiHeightRange;
+        target.voronoiDistributionMode = source.voronoiDistributionMode;
+        target.customVoronoiPoints = new List<Vector2>(source.customVoronoiPoints);
+
+    }
+
+    #endregion
 }

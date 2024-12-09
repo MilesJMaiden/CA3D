@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections.Generic;
 
 [CreateAssetMenu(menuName = "Terrain/GenerationSettings")]
 public class TerrainGenerationSettings : ScriptableObject
@@ -30,4 +31,16 @@ public class TerrainGenerationSettings : ScriptableObject
     public int voronoiCellCount;
     public Vector2 voronoiHeightRange;
     public AnimationCurve voronoiFalloffCurve;
+
+    // Enum for Voronoi Distribution Modes
+    public enum DistributionMode
+    {
+        Random,
+        Grid,
+        Custom
+    }
+
+    [Tooltip("Custom points for Voronoi distribution (used if DistributionMode is Custom).")]
+    public DistributionMode voronoiDistributionMode;
+    public List<Vector2> customVoronoiPoints;
 }
