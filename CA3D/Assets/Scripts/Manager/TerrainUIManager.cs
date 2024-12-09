@@ -13,8 +13,9 @@ public class TerrainUIManager : MonoBehaviour
     public enum DistributionMode
     {
         Random,
-        Grid,
-        Custom
+        Grid
+        // This would require exposing more elements via UI I.e. Vector 2 list
+        //Custom
     }
 
     #region UI References
