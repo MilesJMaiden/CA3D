@@ -328,7 +328,7 @@ public class TerrainUIManager : MonoBehaviour
     /// Displays an error message in the UI.
     /// </summary>
     /// <param name="message">The error message to display.</param>
-    private void DisplayError(string message)
+    public void DisplayError(string message)
     {
         errorMessage.text = message;
         errorMessage.gameObject.SetActive(true);

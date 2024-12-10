@@ -10,7 +10,10 @@ public class MidpointDisplacementModifier : IHeightModifier
         // Ensure grid size matches 2^n + 1
         if (!IsPowerOfTwoPlusOne(width) || !IsPowerOfTwoPlusOne(length))
         {
-            Debug.LogError("Width and Length must be of size 2^n + 1 (e.g., 129, 257, 513) for Midpoint Displacement to work.");
+            Debug.LogError(
+                $"Width and Length must be of size 2^n + 1 (e.g., 129, 257, 513). " +
+                $"Current values: Width = {width}, Length = {length}."
+            );
             return;
         }
 
@@ -85,7 +88,6 @@ public class MidpointDisplacementModifier : IHeightModifier
             currentDisplacement *= settings.displacementDecayRate;
         }
     }
-
     private bool IsPowerOfTwoPlusOne(int value)
     {
         return (value - 1 & (value - 2)) == 0;

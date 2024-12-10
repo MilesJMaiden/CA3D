@@ -5,6 +5,25 @@ public class VoronoiBiomesModifier : IHeightModifier
 {
     public void ModifyHeight(float[,] heights, TerrainGenerationSettings settings)
     {
+        if (settings == null)
+        {
+            Debug.LogError("TerrainGenerationSettings is null in VoronoiBiomesModifier.");
+            return;
+        }
+
+        if (settings.voronoiFalloffCurve == null)
+        {
+            Debug.LogError("VoronoiFalloffCurve is null. Ensure it is assigned in the settings.");
+            return;
+        }
+
+        if (settings.voronoiDistributionMode == TerrainGenerationSettings.DistributionMode.Custom &&
+            (settings.customVoronoiPoints == null || settings.customVoronoiPoints.Count == 0))
+        {
+            Debug.LogError("Custom Voronoi Points are null or empty. Ensure they are assigned.");
+            return;
+        }
+
         int width = heights.GetLength(0);
         int length = heights.GetLength(1);
 
@@ -15,16 +34,14 @@ public class VoronoiBiomesModifier : IHeightModifier
             for (int y = 0; y < length; y++)
             {
                 float minDist = float.MaxValue;
-                int closestPointIndex = -1;
 
                 // Find the closest Voronoi point
-                for (int i = 0; i < points.Count; i++)
+                foreach (var point in points)
                 {
-                    float dist = Vector2.Distance(points[i], new Vector2(x, y));
+                    float dist = Vector2.Distance(point, new Vector2(x, y));
                     if (dist < minDist)
                     {
                         minDist = dist;
-                        closestPointIndex = i;
                     }
                 }
 
@@ -69,10 +86,22 @@ public class VoronoiBiomesModifier : IHeightModifier
                 break;
 
             case TerrainGenerationSettings.DistributionMode.Custom:
-                points.AddRange(settings.customVoronoiPoints);
+                if (settings.customVoronoiPoints != null && settings.customVoronoiPoints.Count > 0)
+                {
+                    points.AddRange(settings.customVoronoiPoints);
+                }
+                else
+                {
+                    Debug.LogWarning("Custom Voronoi Points are null or empty. Using default Random distribution.");
+                    for (int i = 0; i < settings.voronoiCellCount; i++)
+                    {
+                        points.Add(new Vector2(Random.Range(0, width), Random.Range(0, length)));
+                    }
+                }
                 break;
         }
 
         return points;
     }
+
 }
