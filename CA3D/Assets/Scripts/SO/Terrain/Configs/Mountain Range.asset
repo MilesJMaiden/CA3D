@@ -13,27 +13,47 @@ MonoBehaviour:
   m_Name: Mountain Range
   m_EditorClassIdentifier: 
   usePerlinNoise: 1
-  perlinLayers: 5
-  perlinBaseScale: 35
-  perlinAmplitudeDecay: 0.6
-  perlinFrequencyGrowth: 2.2
+  perlinLayers: 8
+  perlinBaseScale: 4
+  perlinAmplitudeDecay: 0.5
+  perlinFrequencyGrowth: 1.2
   perlinOffset: {x: 0, y: 0}
   useFractalBrownianMotion: 1
-  fBmLayers: 6
-  fBmBaseScale: 25
-  fBmAmplitudeDecay: 0.5
-  fBmFrequencyGrowth: 1.8
+  fBmLayers: 1
+  fBmBaseScale: 3
+  fBmAmplitudeDecay: 0.1
+  fBmFrequencyGrowth: 1
   fBmOffset: {x: 10, y: 10}
   useMidPointDisplacement: 1
-  displacementFactor: 1.5
+  displacementFactor: 10
   displacementDecayRate: 0.5
   randomSeed: 123
-  useVoronoiBiomes: 0
-  voronoiCellCount: 0
-  voronoiHeightRange: {x: 0, y: 0}
+  useVoronoiBiomes: 1
+  voronoiCellCount: 9
+  voronoiHeightRange: {x: 0.1, y: 1}
   voronoiFalloffCurve:
     serializedVersion: 2
-    m_Curve: []
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+  voronoiDistributionMode: 1
+  customVoronoiPoints: []

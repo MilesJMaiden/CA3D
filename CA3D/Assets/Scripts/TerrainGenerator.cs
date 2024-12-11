@@ -3,75 +3,83 @@ using UnityEngine;
 
 public class TerrainGenerator : ITerrainGenerator
 {
+    #region Fields
+
     private readonly TerrainGenerationSettings settings;
     private readonly List<IHeightModifier> heightModifiers;
 
-    public TerrainGenerator(TerrainGenerationSettings settings)
+    #endregion
+
+    #region Constructor
+
+    public TerrainGenerator(TerrainGenerationSettings settings, List<IHeightModifier> heightModifiers = null)
     {
         this.settings = settings;
+        this.heightModifiers = heightModifiers ?? HeightModifierFactory.CreateModifiers(settings);
 
-        heightModifiers = new List<IHeightModifier>();
-        if (settings.usePerlinNoise) heightModifiers.Add(new PerlinNoiseModifier());
-        if (settings.useFractalBrownianMotion) heightModifiers.Add(new FractalBrownianMotionModifier());
-        if (settings.useMidPointDisplacement) heightModifiers.Add(new MidpointDisplacementModifier());
-        if (settings.useVoronoiBiomes) heightModifiers.Add(new VoronoiBiomesModifier());
+        Debug.Log($"TerrainGenerator initialized with {this.heightModifiers.Count} modifiers");
     }
 
+    #endregion
+
+    #region Public Methods
+
+    /// <summary>
+    /// Generates terrain heights based on the provided width and length.
+    /// </summary>
+    /// <param name="width">The width of the terrain.</param>
+    /// <param name="length">The length of the terrain.</param>
+    /// <returns>A 2D array of normalized height values.</returns>
     public float[,] GenerateHeights(int width, int length)
     {
         float[,] heights = new float[width, length];
 
-        // Apply each modifier additively
+        // Apply each modifier directly to the heights array
         foreach (var modifier in heightModifiers)
         {
-            float[,] modifierHeights = new float[width, length];
-
-            // Initialize the modifier height array
-            for (int x = 0; x < width; x++)
-            {
-                for (int y = 0; y < length; y++)
-                {
-                    modifierHeights[x, y] = 0f;
-                }
-            }
-
-            // Apply the modifier
-            modifier.ModifyHeight(modifierHeights, settings);
-
-            // Add the modifier heights to the final heightmap
-            for (int x = 0; x < width; x++)
-            {
-                for (int y = 0; y < length; y++)
-                {
-                    heights[x, y] += modifierHeights[x, y];
-                }
-            }
+            modifier.ModifyHeight(heights, settings);
         }
 
-        // Normalize heights to ensure they stay within the range [0, 1]
         NormalizeHeights(heights);
         return heights;
     }
 
+    #endregion
+
+    #region Private Methods
+
+    /// <summary>
+    /// Normalizes the height values to ensure they are within the range [0, 1].
+    /// </summary>
+    /// <param name="heights">The height array to normalize.</param>
     private void NormalizeHeights(float[,] heights)
     {
         float maxHeight = float.MinValue;
         float minHeight = float.MaxValue;
 
-        // Find the min and max height values
-        foreach (var height in heights)
-        {
-            if (height > maxHeight) maxHeight = height;
-            if (height < minHeight) minHeight = height;
-        }
-
-        // Normalize the heights
+        // Find min, max, and normalize in one pass
         for (int x = 0; x < heights.GetLength(0); x++)
         {
             for (int y = 0; y < heights.GetLength(1); y++)
             {
-                heights[x, y] = Mathf.InverseLerp(minHeight, maxHeight, heights[x, y]);
+                float height = heights[x, y];
+                if (height > maxHeight) maxHeight = height;
+                if (height < minHeight) minHeight = height;
+            }
+        }
+
+        float range = maxHeight - minHeight;
+        if (range > Mathf.Epsilon) // Avoid division by zero
+        {
+            for (int x = 0; x < heights.GetLength(0); x++)
+            {
+                for (int y = 0; y < heights.GetLength(1); y++)
+                {
+                    heights[x, y] = (heights[x, y] - minHeight) / range;
+                }
             }
         }
     }
+
+    #endregion
 }

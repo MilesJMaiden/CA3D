@@ -30,9 +30,9 @@ public class TerrainGenerationSettings : ScriptableObject
     public bool useVoronoiBiomes;
     public int voronoiCellCount = 10;
     public Vector2 voronoiHeightRange = new Vector2(0.1f, 0.9f);
-    public AnimationCurve voronoiFalloffCurve = AnimationCurve.Linear(0, 1, 1, 0); // Default curve
+    public AnimationCurve voronoiFalloffCurve = AnimationCurve.Linear(0, 1, 1, 0);
     public DistributionMode voronoiDistributionMode;
-    public List<Vector2> customVoronoiPoints = new List<Vector2>(); // Initialize list
+    public List<Vector2> customVoronoiPoints = new List<Vector2>();
 
     // Enum for Voronoi Distribution Modes
     public enum DistributionMode

@@ -14,8 +14,6 @@ public class TerrainUIManager : MonoBehaviour
     {
         Random,
         Grid
-        // This would require exposing more elements via UI I.e. Vector 2 list
-        //Custom
     }
 
     #region UI References
@@ -51,13 +49,11 @@ public class TerrainUIManager : MonoBehaviour
     public TMP_InputField voronoiCellCountField;
     public TMP_InputField voronoiHeightRangeMinField;
     public TMP_InputField voronoiHeightRangeMaxField;
-
     public TMP_Dropdown voronoiDistributionModeDropdown;
     public TMP_InputField customVoronoiPointsField;
-
     public Toggle useVoronoiBiomesToggle;
 
-    public TMP_Text errorMessage; // TMP_Text for displaying errors
+    public TMP_Text errorMessage;
 
     [Header("Terrain Generator Reference")]
     public TerrainGeneratorManager terrainGeneratorManager;
@@ -87,47 +83,23 @@ public class TerrainUIManager : MonoBehaviour
 
     #region Configuration Management
 
-    /// <summary>
-    /// Populates the configuration dropdown with available settings and sets up a listener for selection changes.
-    /// </summary>
     private void PopulateConfigDropdown()
     {
         configDropdown.ClearOptions();
-
-        foreach (var config in availableConfigs)
-        {
-            configDropdown.options.Add(new TMP_Dropdown.OptionData(config.name));
-        }
-
+        configDropdown.AddOptions(availableConfigs.Select(config => config.name).ToList());
         configDropdown.value = 0;
         configDropdown.RefreshShownValue();
-
-        // Add listener to handle selection changes
         configDropdown.onValueChanged.AddListener(OnDropdownValueChanged);
     }
 
-    /// <summary>
-    /// Populates the Voronoi distribution dropdown with options from the DistributionMode enum.
-    /// </summary>
     private void PopulateVoronoiDistributionDropdown()
     {
         voronoiDistributionModeDropdown.ClearOptions();
-
-        foreach (var mode in System.Enum.GetNames(typeof(DistributionMode)))
-        {
-            voronoiDistributionModeDropdown.options.Add(new TMP_Dropdown.OptionData(mode));
-        }
-
+        voronoiDistributionModeDropdown.AddOptions(System.Enum.GetNames(typeof(DistributionMode)).ToList());
         voronoiDistributionModeDropdown.value = 0;
         voronoiDistributionModeDropdown.RefreshShownValue();
     }
 
-
-
-    /// <summary>
-    /// Handles dropdown selection changes by loading the selected configuration.
-    /// </summary>
-    /// <param name="index">The selected index of the dropdown.</param>
     private void OnDropdownValueChanged(int index)
     {
         if (index < 0 || index >= availableConfigs.Length)
@@ -136,16 +108,10 @@ public class TerrainUIManager : MonoBehaviour
             return;
         }
 
-        // Load the selected configuration
         LoadValuesFromConfig(availableConfigs[index]);
-
-        // Clear any error messages
         ClearError();
     }
 
-    /// <summary>
-    /// Loads the default values from the first configuration.
-    /// </summary>
     private void LoadDefaultValues()
     {
         if (availableConfigs == null || availableConfigs.Length == 0)
@@ -157,16 +123,15 @@ public class TerrainUIManager : MonoBehaviour
         LoadValuesFromConfig(availableConfigs[0]);
     }
 
-    /// <summary>
-    /// Loads values from a specified configuration into the UI fields and settings.
-    /// </summary>
-    /// <param name="config">The configuration to load.</param>
     private void LoadValuesFromConfig(TerrainGenerationSettings config)
     {
         currentSettings = ScriptableObject.CreateInstance<TerrainGenerationSettings>();
         CopySettings(config, currentSettings);
+        UpdateUIFieldsFromSettings(config);
+    }
 
-        // Update UI fields
+    private void UpdateUIFieldsFromSettings(TerrainGenerationSettings config)
+    {
         SetField(usePerlinNoiseToggle, config.usePerlinNoise);
         SetField(perlinLayersField, config.perlinLayers.ToString());
         SetField(perlinBaseScaleField, config.perlinBaseScale.ToString());
@@ -197,14 +162,10 @@ public class TerrainUIManager : MonoBehaviour
         customVoronoiPointsField.text = string.Join(";", config.customVoronoiPoints.Select(p => $"{p.x},{p.y}"));
     }
 
-
     #endregion
 
     #region Input Field Validation
 
-    /// <summary>
-    /// Adds listeners to all UI elements for validation and regeneration.
-    /// </summary>
     private void AddListeners()
     {
         AddValidatedFieldListener(perlinLayersField, value => currentSettings.perlinLayers = int.Parse(value), 1, 100);
@@ -233,7 +194,7 @@ public class TerrainUIManager : MonoBehaviour
             }
             catch
             {
-                DisplayError("Invalid custom Voronoi points format. Use 'x1,y1;x2,y2'.");
+                DisplayError("Invalid custom Voronoi points format. Use 'x1,y1;x2,y2' format.");
             }
         });
 
@@ -248,9 +209,7 @@ public class TerrainUIManager : MonoBehaviour
         AddFieldListener(useMidPointDisplacementToggle, value => currentSettings.useMidPointDisplacement = value);
         AddFieldListener(useVoronoiBiomesToggle, value => currentSettings.useVoronoiBiomes = value);
     }
-    /// <summary>
-    /// Adds validation logic to input fields, ensuring valid input and terrain regeneration.
-    /// </summary>
+
     private void AddValidatedFieldListener(TMP_InputField field, System.Action<string> onChanged, float min, float max)
     {
         field.onEndEdit.AddListener(value =>
@@ -264,15 +223,11 @@ public class TerrainUIManager : MonoBehaviour
             else
             {
                 DisplayError($"Invalid input for {field.name}. Must be between {min} and {max}.");
-                field.text = min.ToString(); // Reset to minimum valid value
+                field.text = min.ToString();
             }
         });
     }
 
-
-    /// <summary>
-    /// Adds a listener to a dropdown field to update settings and regenerate terrain.
-    /// </summary>
     private void AddDropdownListener(TMP_Dropdown dropdown, System.Action<int> onChanged)
     {
         dropdown.onValueChanged.AddListener(value =>
@@ -283,9 +238,6 @@ public class TerrainUIManager : MonoBehaviour
         });
     }
 
-    /// <summary>
-    /// Adds a listener to an input field to update settings and regenerate terrain.
-    /// </summary>
     private void AddInputFieldListener(TMP_InputField field, System.Action<string> onChanged)
     {
         field.onEndEdit.AddListener(value =>
@@ -294,9 +246,6 @@ public class TerrainUIManager : MonoBehaviour
         });
     }
 
-    /// <summary>
-    /// Adds a listener to a toggle field to update settings and regenerate terrain.
-    /// </summary>
     private void AddFieldListener(Toggle toggle, System.Action<bool> onChanged)
     {
         toggle.onValueChanged.AddListener(value =>
@@ -311,9 +260,6 @@ public class TerrainUIManager : MonoBehaviour
 
     #region Terrain Regeneration
 
-    /// <summary>
-    /// Regenerates the terrain with the current settings.
-    /// </summary>
     private void RegenerateTerrain()
     {
         terrainGeneratorManager.terrainSettings = currentSettings;
@@ -324,19 +270,12 @@ public class TerrainUIManager : MonoBehaviour
 
     #region Error Handling
 
-    /// <summary>
-    /// Displays an error message in the UI.
-    /// </summary>
-    /// <param name="message">The error message to display.</param>
     public void DisplayError(string message)
     {
         errorMessage.text = message;
         errorMessage.gameObject.SetActive(true);
     }
 
-    /// <summary>
-    /// Clears any error messages in the UI.
-    /// </summary>
     private void ClearError()
     {
         errorMessage.text = "";
@@ -350,25 +289,16 @@ public class TerrainUIManager : MonoBehaviour
     private void SetField(TMP_InputField field, string value) => field.text = value;
     private void SetField(Toggle toggle, bool value) => toggle.isOn = value;
 
-    /// <summary>
-    /// Parses a semicolon-separated list of custom Voronoi points into a list of Vector2.
-    /// </summary>
     private List<Vector2> ParseCustomVoronoiPoints(string value)
     {
-        var points = new List<Vector2>();
-        var pairs = value.Split(';');
-        foreach (var pair in pairs)
-        {
-            var coords = pair.Split(',');
-            if (coords.Length == 2 && float.TryParse(coords[0], out float x) && float.TryParse(coords[1], out float y))
-            {
-                points.Add(new Vector2(x, y));
-            }
-        }
-        return points;
+        return value.Split(';')
+                    .Select(pair => pair.Split(','))
+                    .Where(coords => coords.Length == 2 &&
+                                     float.TryParse(coords[0], out _) &&
+                                     float.TryParse(coords[1], out _))
+                    .Select(coords => new Vector2(float.Parse(coords[0]), float.Parse(coords[1])))
+                    .ToList();
     }
-
-
 
     private void CopySettings(TerrainGenerationSettings source, TerrainGenerationSettings target)
     {
@@ -396,7 +326,6 @@ public class TerrainUIManager : MonoBehaviour
         target.voronoiHeightRange = source.voronoiHeightRange;
         target.voronoiDistributionMode = source.voronoiDistributionMode;
         target.customVoronoiPoints = new List<Vector2>(source.customVoronoiPoints);
-
     }
 
     #endregion
