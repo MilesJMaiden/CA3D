@@ -1,51 +1,81 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+/// <summary>
+/// A height modifier that applies Voronoi-based biome generation to a terrain heightmap.
+/// </summary>
 public class VoronoiBiomesModifier : IHeightModifier
 {
+    #region Public Methods
+
+    /// <summary>
+    /// Modifies the terrain heights based on Voronoi biome generation.
+    /// </summary>
+    /// <param name="heights">The 2D array of terrain heights to modify.</param>
+    /// <param name="settings">The terrain generation settings used for Voronoi generation.</param>
     public void ModifyHeight(float[,] heights, TerrainGenerationSettings settings)
     {
         int width = heights.GetLength(0);
         int length = heights.GetLength(1);
 
+        // Generate Voronoi points
         List<Vector2> points = GenerateVoronoiPoints(settings, width, length);
+
+        float maxDistance = Mathf.Max(width, length);
 
         for (int x = 0; x < width; x++)
         {
             for (int y = 0; y < length; y++)
             {
-                float minDist = float.MaxValue;
+                float minDistSquared = float.MaxValue;
                 int closestPointIndex = -1;
+
+                Vector2 currentPoint = new Vector2(x, y);
 
                 // Find the closest Voronoi point
                 for (int i = 0; i < points.Count; i++)
                 {
-                    float dist = Vector2.Distance(points[i], new Vector2(x, y));
-                    if (dist < minDist)
+                    float distSquared = (points[i] - currentPoint).sqrMagnitude;
+                    if (distSquared < minDistSquared)
                     {
-                        minDist = dist;
+                        minDistSquared = distSquared;
                         closestPointIndex = i;
                     }
                 }
 
-                // Use the falloff curve and height range for the influence
-                float normalizedDistance = minDist / Mathf.Max(width, length);
-                float falloffValue = settings.voronoiFalloffCurve.Evaluate(1 - normalizedDistance);
-                heights[x, y] += Mathf.Lerp(settings.voronoiHeightRange.x, settings.voronoiHeightRange.y, falloffValue);
+                // Apply the influence of the closest Voronoi point
+                if (closestPointIndex != -1)
+                {
+                    float normalizedDistance = Mathf.Sqrt(minDistSquared) / maxDistance;
+                    float falloffValue = settings.voronoiFalloffCurve.Evaluate(1 - normalizedDistance);
+                    heights[x, y] += Mathf.Lerp(settings.voronoiHeightRange.x, settings.voronoiHeightRange.y, falloffValue);
+                }
             }
         }
     }
 
+    #endregion
+
+    #region Private Methods
+
+    /// <summary>
+    /// Generates Voronoi points based on the selected distribution mode.
+    /// </summary>
+    /// <param name="settings">The terrain generation settings.</param>
+    /// <param name="width">The width of the terrain.</param>
+    /// <param name="length">The length of the terrain.</param>
+    /// <returns>A list of Voronoi points.</returns>
     private List<Vector2> GenerateVoronoiPoints(TerrainGenerationSettings settings, int width, int length)
     {
-        List<Vector2> points = new List<Vector2>();
+        HashSet<Vector2> points = new HashSet<Vector2>();
 
         switch (settings.voronoiDistributionMode)
         {
             case TerrainGenerationSettings.DistributionMode.Random:
-                for (int i = 0; i < settings.voronoiCellCount; i++)
+                while (points.Count < settings.voronoiCellCount)
                 {
-                    points.Add(new Vector2(Random.Range(0, width), Random.Range(0, length)));
+                    Vector2 randomPoint = new Vector2(Random.Range(0, width), Random.Range(0, length));
+                    points.Add(randomPoint); // Avoid duplicates with HashSet
                 }
                 break;
 
@@ -69,11 +99,16 @@ public class VoronoiBiomesModifier : IHeightModifier
                 break;
 
             case TerrainGenerationSettings.DistributionMode.Custom:
-                points.AddRange(settings.customVoronoiPoints);
+                foreach (var point in settings.customVoronoiPoints)
+                {
+                    if (!points.Contains(point))
+                        points.Add(point);
+                }
                 break;
         }
 
-        return points;
+        return new List<Vector2>(points);
     }
 
+    #endregion
 }
