@@ -168,18 +168,50 @@ public class TerrainUIManager : MonoBehaviour
 
     private void AddListeners()
     {
+        // Perlin Noise
         AddValidatedFieldListener(perlinLayersField, value => currentSettings.perlinLayers = int.Parse(value), 1, 100);
         AddValidatedFieldListener(perlinBaseScaleField, value => currentSettings.perlinBaseScale = float.Parse(value), 0.1f, 500f);
         AddValidatedFieldListener(perlinAmplitudeDecayField, value => currentSettings.perlinAmplitudeDecay = float.Parse(value), 0f, 1f);
         AddValidatedFieldListener(perlinFrequencyGrowthField, value => currentSettings.perlinFrequencyGrowth = float.Parse(value), 0.1f, 10f);
 
+        AddInputFieldListener(perlinOffsetXField, value =>
+        {
+            float offsetX = float.Parse(value);
+            currentSettings.perlinOffset = new Vector2(offsetX, currentSettings.perlinOffset.y);
+            RegenerateTerrain();
+        });
+
+        AddInputFieldListener(perlinOffsetYField, value =>
+        {
+            float offsetY = float.Parse(value);
+            currentSettings.perlinOffset = new Vector2(currentSettings.perlinOffset.x, offsetY);
+            RegenerateTerrain();
+        });
+
+        // fBm
         AddValidatedFieldListener(fBmLayersField, value => currentSettings.fBmLayers = int.Parse(value), 1, 100);
         AddValidatedFieldListener(fBmBaseScaleField, value => currentSettings.fBmBaseScale = float.Parse(value), 0.1f, 500f);
 
+        AddInputFieldListener(fBmOffsetXField, value =>
+        {
+            float offsetX = float.Parse(value);
+            currentSettings.fBmOffset = new Vector2(offsetX, currentSettings.fBmOffset.y);
+            RegenerateTerrain();
+        });
+
+        AddInputFieldListener(fBmOffsetYField, value =>
+        {
+            float offsetY = float.Parse(value);
+            currentSettings.fBmOffset = new Vector2(currentSettings.fBmOffset.x, offsetY);
+            RegenerateTerrain();
+        });
+
+        // Midpoint Displacement
         AddValidatedFieldListener(displacementFactorField, value => currentSettings.displacementFactor = float.Parse(value), 0.1f, 10f);
         AddValidatedFieldListener(displacementDecayRateField, value => currentSettings.displacementDecayRate = float.Parse(value), 0f, 1f);
         AddValidatedFieldListener(randomSeedField, value => currentSettings.randomSeed = int.Parse(value), 0, 10000);
 
+        // Voronoi Biomes
         AddValidatedFieldListener(voronoiCellCountField, value => currentSettings.voronoiCellCount = int.Parse(value), 1, 100);
         AddValidatedFieldListener(voronoiHeightRangeMinField, value => currentSettings.voronoiHeightRange.x = float.Parse(value), 0f, 1f);
         AddValidatedFieldListener(voronoiHeightRangeMaxField, value => currentSettings.voronoiHeightRange.y = float.Parse(value), 0f, 1f);
@@ -204,11 +236,13 @@ public class TerrainUIManager : MonoBehaviour
             RegenerateTerrain();
         });
 
+        // Toggles
         AddFieldListener(usePerlinNoiseToggle, value => currentSettings.usePerlinNoise = value);
         AddFieldListener(useFractalBrownianMotionToggle, value => currentSettings.useFractalBrownianMotion = value);
         AddFieldListener(useMidPointDisplacementToggle, value => currentSettings.useMidPointDisplacement = value);
         AddFieldListener(useVoronoiBiomesToggle, value => currentSettings.useVoronoiBiomes = value);
     }
+
 
     private void AddValidatedFieldListener(TMP_InputField field, System.Action<string> onChanged, float min, float max)
     {
@@ -238,13 +272,20 @@ public class TerrainUIManager : MonoBehaviour
         });
     }
 
+    /// <summary>
+    /// Adds a listener to an input field to update settings and regenerate terrain.
+    /// </summary>
+    /// <param name="field">The input field to listen to.</param>
+    /// <param name="onChanged">The action to execute when the field changes.</param>
     private void AddInputFieldListener(TMP_InputField field, System.Action<string> onChanged)
     {
         field.onEndEdit.AddListener(value =>
         {
+            Debug.Log($"Input Changed: {field.name} = {value}");
             onChanged(value);
         });
     }
+
 
     private void AddFieldListener(Toggle toggle, System.Action<bool> onChanged)
     {
@@ -260,11 +301,18 @@ public class TerrainUIManager : MonoBehaviour
 
     #region Terrain Regeneration
 
+    /// <summary>
+    /// Regenerates the terrain using the current settings.
+    /// </summary>
     private void RegenerateTerrain()
     {
-        terrainGeneratorManager.terrainSettings = currentSettings;
-        terrainGeneratorManager.GenerateTerrain();
+        if (terrainGeneratorManager != null)
+        {
+            terrainGeneratorManager.terrainSettings = currentSettings;
+            terrainGeneratorManager.GenerateTerrain();
+        }
     }
+
 
     #endregion
 

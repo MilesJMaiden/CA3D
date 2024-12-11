@@ -71,9 +71,11 @@ public class TerrainGeneratorManager : MonoBehaviour
 
         if (heights != null)
         {
+            Debug.Log($"Offsets: Perlin - {terrainSettings.perlinOffset}, fBm - {terrainSettings.fBmOffset}");
             m_TerrainData.SetHeights(0, 0, heights);
         }
     }
+
 
     #endregion
 
@@ -119,6 +121,7 @@ public class TerrainGeneratorManager : MonoBehaviour
         terrainGenerator = new TerrainGenerator(terrainSettings);
         return true;
     }
+
 
     /// <summary>
     /// Validates and adjusts the terrain dimensions to ensure compatibility with midpoint displacement.
