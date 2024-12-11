@@ -1,50 +1,72 @@
 using UnityEngine;
 
+/// <summary>
+/// Manages terrain generation using specified settings and handles related validations and errors.
+/// </summary>
 [RequireComponent(typeof(Terrain))]
 public class TerrainGeneratorManager : MonoBehaviour
 {
+    #region Fields and Properties
+
     [Header("Terrain Dimensions")]
-    public int width = 256; // Default dimension
-    public int length = 256; // Default dimension
-    public int height = 50; // Maximum height
+    [Tooltip("The width of the terrain.")]
+    public int width = 256;
+
+    [Tooltip("The length of the terrain.")]
+    public int length = 256;
+
+    [Tooltip("The maximum height of the terrain.")]
+    public int height = 50;
 
     [Header("Settings")]
+    [Tooltip("The settings used for terrain generation.")]
     public TerrainGenerationSettings terrainSettings;
 
     [Header("Optional UI Manager (for error reporting)")]
+    [Tooltip("The UI Manager for displaying errors (optional).")]
     public TerrainUIManager uiManager;
 
     private ITerrainGenerator terrainGenerator;
     private Terrain m_Terrain;
     private TerrainData m_TerrainData;
 
+    #endregion
+
+    #region Unity Lifecycle
+
     private void Awake()
     {
-        m_Terrain = GetComponent<Terrain>();
-        m_TerrainData = m_Terrain.terrainData;
-
+        InitializeTerrainComponents();
         ValidateAndAdjustDimensions();
         InitializeGenerator();
         GenerateTerrain();
     }
 
+    #endregion
+
+    #region Public Methods
+
+    /// <summary>
+    /// Generates the terrain using the current settings and updates the Unity terrain component.
+    /// </summary>
     public void GenerateTerrain()
     {
         if (terrainSettings == null)
         {
-            ReportError("Terrain settings not assigned!");
+            ReportError("Terrain settings are not assigned.");
             return;
         }
 
-        // Validate and adjust terrain dimensions for Midpoint Displacement
         ValidateAndAdjustDimensions();
 
-        // Ensure the generator uses the latest settings
-        InitializeGenerator();
+        if (!InitializeGenerator())
+        {
+            return; // Stop if generator initialization fails
+        }
 
-        // Generate terrain
         m_TerrainData.heightmapResolution = width + 1;
         m_TerrainData.size = new Vector3(width, height, length);
+
         float[,] heights = terrainGenerator.GenerateHeights(width, length);
 
         if (heights != null)
@@ -53,38 +75,53 @@ public class TerrainGeneratorManager : MonoBehaviour
         }
     }
 
-    private void InitializeGenerator()
+    #endregion
+
+    #region Private Methods
+
+    /// <summary>
+    /// Initializes the terrain and its data components.
+    /// </summary>
+    private void InitializeTerrainComponents()
     {
-        if (terrainSettings != null)
-        {
-            // Validate Voronoi settings before creating the generator
-            if (terrainSettings.useVoronoiBiomes)
-            {
-                if (terrainSettings.voronoiFalloffCurve == null)
-                {
-                    ReportError("VoronoiFalloffCurve is null. Assign a valid AnimationCurve.");
-                    return;
-                }
-
-                if (terrainSettings.voronoiDistributionMode == TerrainGenerationSettings.DistributionMode.Custom &&
-                    (terrainSettings.customVoronoiPoints == null || terrainSettings.customVoronoiPoints.Count == 0))
-                {
-                    ReportError("Custom Voronoi Points are null or empty.");
-                    return;
-                }
-            }
-
-            terrainGenerator = new TerrainGenerator(terrainSettings);
-        }
-        else
-        {
-            ReportError("Terrain settings are null. Cannot initialize generator.");
-        }
+        m_Terrain = GetComponent<Terrain>();
+        m_TerrainData = m_Terrain.terrainData;
     }
 
     /// <summary>
-    /// Validates the terrain dimensions to ensure they conform to 2^n + 1 for Midpoint Displacement.
-    /// Adjusts them if necessary.
+    /// Initializes the terrain generator based on the current settings.
+    /// </summary>
+    /// <returns>True if the generator was successfully initialized; otherwise, false.</returns>
+    private bool InitializeGenerator()
+    {
+        if (terrainSettings == null)
+        {
+            ReportError("Terrain settings are null. Cannot initialize generator.");
+            return false;
+        }
+
+        if (terrainSettings.useVoronoiBiomes)
+        {
+            if (terrainSettings.voronoiFalloffCurve == null)
+            {
+                ReportError("Voronoi Falloff Curve is null. Assign a valid AnimationCurve.");
+                return false;
+            }
+
+            if (terrainSettings.voronoiDistributionMode == TerrainGenerationSettings.DistributionMode.Custom &&
+                (terrainSettings.customVoronoiPoints == null || terrainSettings.customVoronoiPoints.Count == 0))
+            {
+                ReportError("Custom Voronoi Points are null or empty.");
+                return false;
+            }
+        }
+
+        terrainGenerator = new TerrainGenerator(terrainSettings);
+        return true;
+    }
+
+    /// <summary>
+    /// Validates and adjusts the terrain dimensions to ensure compatibility with midpoint displacement.
     /// </summary>
     private void ValidateAndAdjustDimensions()
     {
@@ -96,10 +133,10 @@ public class TerrainGeneratorManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Adjusts the given value to the nearest valid dimension (2^n + 1).
+    /// Adjusts a dimension value to the nearest valid size (2^n + 1).
     /// </summary>
-    /// <param name="value">The value to adjust.</param>
-    /// <returns>The adjusted value.</returns>
+    /// <param name="value">The dimension value to adjust.</param>
+    /// <returns>The adjusted dimension value.</returns>
     private int AdjustToPowerOfTwoPlusOne(int value)
     {
         int power = Mathf.CeilToInt(Mathf.Log(value - 1, 2));
@@ -107,7 +144,7 @@ public class TerrainGeneratorManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Reports errors to the Unity console and optionally to the UI manager.
+    /// Reports an error message to the Unity console and optionally to the UI manager.
     /// </summary>
     /// <param name="message">The error message to report.</param>
     private void ReportError(string message)
@@ -118,4 +155,6 @@ public class TerrainGeneratorManager : MonoBehaviour
             uiManager.DisplayError(message);
         }
     }
+
+    #endregion
 }
