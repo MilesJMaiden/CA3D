@@ -15757,7 +15757,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1719529067}
-  - component: {fileID: 1719529066}
   - component: {fileID: 1719529065}
   - component: {fileID: 1719529064}
   - component: {fileID: 1719529068}
@@ -15828,84 +15827,6 @@ Terrain:
   m_EnableHeightmapRayTracing: 1
   m_EnableTreesAndDetailsRayTracing: 0
   m_TreeMotionVectorModeOverride: 3
---- !u!114 &1719529066
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1719529063}
-  m_Enabled: 0
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 86316d6be7bbecf4a85e8bc75d8bfc2e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  width: 256
-  length: 256
-  height: 50
-  usePerlinNoise: 1
-  perlinLayers: 1
-  perlinBaseScale: 20
-  perlinAmplitudeDecay: 0.5
-  perlinFrequencyGrowth: 2
-  perlinOffsetX: 0
-  perlinOffsetY: 0
-  perlinBlendingMode: 0
-  useFractalBrownianMotion: 0
-  fBmLayers: 4
-  fBmBaseScale: 20
-  fBmAmplitudeDecay: 0.5
-  fBmFrequencyGrowth: 2
-  fBmOffsetX: 0
-  fBmOffsetY: 0
-  fBmBlendingMode: 0
-  useMidPointDisplacement: 0
-  displacementFactor: 1
-  displacementDecayRate: 0.5
-  randomSeed: 42
-  enableDebugLogs: 0
-  useVoronoiBiomes: 0
-  voronoiCellCount: 10
-  voronoiHeightRange: {x: 0.1, y: 0.9}
-  voronoiDistributionMode: 0
-  voronoiFalloffCurve:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 1
-      inSlope: 0
-      outSlope: -1
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    - serializedVersion: 3
-      time: 1
-      value: 0
-      inSlope: -1
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
-  enableVoronoiDebug: 0
-  customVoronoiPoints: []
-  useMarchingCubes: 0
-  marchingCubesMaterial: {fileID: 2100000, guid: bdcf64ce06ec0f5469d5168dd239d75e, type: 2}
-  insideBelowThreshold: 1
-  marchingCubesThreshold: 0.5
-  marchingCubesVoxelSize: 1
-  densityFalloffFactor: 5
-  scalarFieldBlendingMode: 0
-  additionalScalarFields: []
-  enableMarchingCubesDebug: 0
-  drawVoxelGrid: 0
-  drawMeshNormals: 0
-  regenerateOnVariableChange: 1
 --- !u!4 &1719529067
 Transform:
   m_ObjectHideFlags: 0
@@ -15936,7 +15857,8 @@ MonoBehaviour:
   width: 256
   length: 256
   height: 50
-  terrainSettings: {fileID: 11400000, guid: 0ddff04a997a78549a079ae3ab6c822d, type: 2}
+  terrainSettings: {fileID: 11400000, guid: b2299359f7b47eb43a6d78b3a6bec8e0, type: 2}
+  uiManager: {fileID: 1964166518}
 --- !u!1 &1726669287
 GameObject:
   m_ObjectHideFlags: 0
@@ -17693,6 +17615,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 59536717d03ca684393427fadf3f0122, type: 2}
   - {fileID: 11400000, guid: 6e70061f492eb4645ac7f4faeb2bbeea, type: 2}
   - {fileID: 11400000, guid: 0ddff04a997a78549a079ae3ab6c822d, type: 2}
+  - {fileID: 11400000, guid: b2299359f7b47eb43a6d78b3a6bec8e0, type: 2}
 --- !u!114 &1964166519
 MonoBehaviour:
   m_ObjectHideFlags: 0
