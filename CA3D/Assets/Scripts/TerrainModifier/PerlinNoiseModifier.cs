@@ -56,7 +56,9 @@ public class PerlinNoiseModifier : IHeightModifier
             float yCoord = (normalizedY * baseScale * frequency) + offset.y;
 
             heightValue += Mathf.PerlinNoise(xCoord, yCoord) * amplitude;
-            amplitude *= amplitudeDecay;
+            //Debug.Log($"Layer {layer}: xCoord={xCoord}, yCoord={yCoord}, amplitude={amplitude}, decay={amplitudeDecay}");
+
+            amplitude *= Mathf.Clamp(amplitudeDecay, 0f, 1f);
             frequency *= frequencyGrowth;
         }
 

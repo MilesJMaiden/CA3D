@@ -171,7 +171,13 @@ public class TerrainUIManager : MonoBehaviour
         // Perlin Noise
         AddValidatedFieldListener(perlinLayersField, value => currentSettings.perlinLayers = int.Parse(value), 1, 100);
         AddValidatedFieldListener(perlinBaseScaleField, value => currentSettings.perlinBaseScale = float.Parse(value), 0.1f, 500f);
-        AddValidatedFieldListener(perlinAmplitudeDecayField, value => currentSettings.perlinAmplitudeDecay = float.Parse(value), 0f, 1f);
+        AddValidatedFieldListener(perlinAmplitudeDecayField, value =>
+        {
+            currentSettings.perlinAmplitudeDecay = float.Parse(value);
+            Debug.Log($"Updated perlinAmplitudeDecay: {currentSettings.perlinAmplitudeDecay}");
+            RegenerateTerrain();
+        }, 0f, 1f);
+
         AddValidatedFieldListener(perlinFrequencyGrowthField, value => currentSettings.perlinFrequencyGrowth = float.Parse(value), 0.1f, 10f);
 
         AddInputFieldListener(perlinOffsetXField, value =>
@@ -189,8 +195,26 @@ public class TerrainUIManager : MonoBehaviour
         });
 
         // fBm
-        AddValidatedFieldListener(fBmLayersField, value => currentSettings.fBmLayers = int.Parse(value), 1, 100);
-        AddValidatedFieldListener(fBmBaseScaleField, value => currentSettings.fBmBaseScale = float.Parse(value), 0.1f, 500f);
+        AddValidatedFieldListener(fBmLayersField, value =>
+        {
+            currentSettings.fBmLayers = int.Parse(value);
+            Debug.Log($"Updated fBmLayers: {currentSettings.fBmLayers}");
+            RegenerateTerrain();
+        }, 1, 100);
+
+        AddValidatedFieldListener(fBmBaseScaleField, value =>
+        {
+            currentSettings.fBmBaseScale = float.Parse(value);
+            Debug.Log($"Updated fBmBaseScale: {currentSettings.fBmBaseScale}");
+            RegenerateTerrain();
+        }, 0.1f, 500f);
+
+        AddValidatedFieldListener(fBmAmplitudeDecayField, value =>
+        {
+            currentSettings.fBmAmplitudeDecay = float.Parse(value);
+            Debug.Log($"Updated fBmAmplitudeDecay: {currentSettings.fBmAmplitudeDecay}");
+            RegenerateTerrain();
+        }, 0f, 1f);
 
         AddInputFieldListener(fBmOffsetXField, value =>
         {
@@ -198,6 +222,13 @@ public class TerrainUIManager : MonoBehaviour
             currentSettings.fBmOffset = new Vector2(offsetX, currentSettings.fBmOffset.y);
             RegenerateTerrain();
         });
+
+        AddValidatedFieldListener(fBmFrequencyGrowthField, value =>
+        {
+            currentSettings.fBmFrequencyGrowth = float.Parse(value);
+            Debug.Log($"Updated fBmFrequencyGrowth: {currentSettings.fBmFrequencyGrowth}");
+            RegenerateTerrain();
+        }, 0.1f, 10f);
 
         AddInputFieldListener(fBmOffsetYField, value =>
         {
@@ -308,11 +339,15 @@ public class TerrainUIManager : MonoBehaviour
     {
         if (terrainGeneratorManager != null)
         {
+            Debug.Log("Regenerating terrain with updated settings...");
             terrainGeneratorManager.terrainSettings = currentSettings;
             terrainGeneratorManager.GenerateTerrain();
         }
+        else
+        {
+            Debug.LogError("TerrainGeneratorManager is null!");
+        }
     }
-
 
     #endregion
 

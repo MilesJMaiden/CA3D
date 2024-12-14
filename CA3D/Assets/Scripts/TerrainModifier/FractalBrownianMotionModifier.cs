@@ -17,8 +17,8 @@ public class FractalBrownianMotionModifier : IHeightModifier
 
         // Cache reusable values from settings
         float baseScale = settings.fBmBaseScale;
-        float amplitudeDecay = settings.fBmAmplitudeDecay;
-        float frequencyGrowth = settings.fBmFrequencyGrowth;
+        float amplitudeDecay = Mathf.Clamp(settings.fBmAmplitudeDecay, 0f, 1f);
+        float frequencyGrowth = Mathf.Clamp(settings.fBmFrequencyGrowth, 0.1f, 10f);
         Vector2 offset = settings.fBmOffset;
 
         float xNormalizer = 1f / width;
@@ -29,7 +29,7 @@ public class FractalBrownianMotionModifier : IHeightModifier
             for (int y = 0; y < length; y++)
             {
                 float heightValue = GenerateFractalNoise(x, y, xNormalizer, yNormalizer, baseScale, amplitudeDecay, frequencyGrowth, offset, settings.fBmLayers);
-                heights[x, y] += heightValue;
+                heights[x, y] += Mathf.Clamp(heightValue, 0f, 1f); // Clamp to ensure valid height range
             }
         }
     }
@@ -52,9 +52,13 @@ public class FractalBrownianMotionModifier : IHeightModifier
             float xCoord = (x * xNormalizer) * baseScale * frequency + offset.x;
             float yCoord = (y * yNormalizer) * baseScale * frequency + offset.y;
 
-            heightValue += Mathf.PerlinNoise(xCoord, yCoord) * amplitude;
-            amplitude *= amplitudeDecay;
-            frequency *= frequencyGrowth;
+            float noiseValue = Mathf.PerlinNoise(xCoord, yCoord);
+            heightValue += noiseValue * amplitude;
+
+            //Debug.Log($"Layer {layer}: xCoord={xCoord}, yCoord={yCoord}, noiseValue={noiseValue}, amplitude={amplitude}, frequency={frequency}");
+
+            amplitude *= Mathf.Clamp(amplitudeDecay, 0f, 1f);
+            frequency *= Mathf.Clamp(frequencyGrowth, 0.1f, 10f);
         }
 
         return heightValue;
