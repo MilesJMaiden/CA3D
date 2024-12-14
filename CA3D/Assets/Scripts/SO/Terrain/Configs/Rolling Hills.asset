@@ -10,43 +10,43 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 4dfd7167753e54d498f4f976b989ba22, type: 3}
-  m_Name: Desert Dunes
+  m_Name: Rolling Hills
   m_EditorClassIdentifier: 
-  usePerlinNoise: 0
-  perlinLayers: 0
-  perlinBaseScale: 0
-  perlinAmplitudeDecay: 0
-  perlinFrequencyGrowth: 0
+  usePerlinNoise: 1
+  perlinLayers: 3
+  perlinBaseScale: 50
+  perlinAmplitudeDecay: 0.6
+  perlinFrequencyGrowth: 1.8
   perlinOffset: {x: 0, y: 0}
   useFractalBrownianMotion: 0
-  fBmLayers: 0
-  fBmBaseScale: 0
-  fBmAmplitudeDecay: 0
-  fBmFrequencyGrowth: 0
-  fBmOffset: {x: 0, y: 0}
+  fBmLayers: 5
+  fBmBaseScale: 15
+  fBmAmplitudeDecay: 0.6
+  fBmFrequencyGrowth: 2.5
+  fBmOffset: {x: 25, y: 25}
   useMidPointDisplacement: 0
-  displacementFactor: 0
-  displacementDecayRate: 0
-  randomSeed: 0
+  displacementFactor: 2
+  displacementDecayRate: 0.6
+  randomSeed: 456
   useVoronoiBiomes: 0
-  voronoiCellCount: 10
-  voronoiHeightRange: {x: 0.1, y: 0.9}
+  voronoiCellCount: 12
+  voronoiHeightRange: {x: 0.05, y: 1}
   voronoiFalloffCurve:
     serializedVersion: 2
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 1
-      inSlope: 0
-      outSlope: -1
+      value: 0
+      inSlope: 2
+      outSlope: 2
       tangentMode: 0
       weightedMode: 0
       inWeight: 0
       outWeight: 0
     - serializedVersion: 3
-      time: 1
-      value: 0
-      inSlope: -1
+      time: 0.989624
+      value: -0.001411438
+      inSlope: 0
       outSlope: 0
       tangentMode: 0
       weightedMode: 0
@@ -58,6 +58,9 @@ MonoBehaviour:
   voronoiDistributionMode: 0
   customVoronoiPoints: []
   textureMappings:
-  - terrainLayer: {fileID: 0}
+  - terrainLayer: {fileID: 8574412962073106934, guid: a0e0246d9cb9f7942a0641f9781822cf, type: 2}
     minHeight: 0
-    maxHeight: 0
+    maxHeight: 0.5
+  - terrainLayer: {fileID: 8574412962073106934, guid: 42f80b93d46647248a57751d9be92221, type: 2}
+    minHeight: 0.45
+    maxHeight: 1
