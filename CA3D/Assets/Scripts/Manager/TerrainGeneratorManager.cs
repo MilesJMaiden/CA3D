@@ -127,7 +127,8 @@ public class TerrainGeneratorManager : MonoBehaviour
     {
         if (terrainSettings.textureMappings == null || terrainSettings.textureMappings.Length == 0)
         {
-            Debug.LogWarning("No texture mappings defined in the settings. Assigning default TerrainLayers.");
+            Debug.LogWarning("Texture mappings in the ScriptableObject are empty. Assigning default TerrainLayers from resources.");
+
             terrainSettings.textureMappings = new TerrainGenerationSettings.TerrainTextureMapping[]
             {
             new TerrainGenerationSettings.TerrainTextureMapping
@@ -154,9 +155,25 @@ public class TerrainGeneratorManager : MonoBehaviour
         }
         else
         {
-            Debug.Log("Texture mappings are already defined in the ScriptableObject. Skipping default assignment.");
+            Debug.Log("Using texture mappings defined in the ScriptableObject.");
         }
     }
+
+    private void ApplyTerrainLayers(TerrainData terrainData, TerrainGenerationSettings settings)
+    {
+        // Convert mappings to TerrainLayers
+        TerrainLayer[] layers = GetTerrainLayers(settings.textureMappings);
+
+        if (layers == null || layers.Length == 0)
+        {
+            Debug.LogError("No valid TerrainLayers found in texture mappings. Aborting layer assignment.");
+            return;
+        }
+
+        terrainData.terrainLayers = layers;
+        Debug.Log($"Assigned {layers.Length} terrain layers to the TerrainData.");
+    }
+
 
 
     /// <summary>
@@ -215,44 +232,32 @@ public class TerrainGeneratorManager : MonoBehaviour
     /// </summary>
     private void ApplyTextures(float[,] heights, TerrainGenerationSettings settings, int width, int length, TerrainData terrainData)
     {
-        if (settings.textureMappings == null || settings.textureMappings.Length == 0)
+        TerrainLayer[] layers = terrainData.terrainLayers;
+
+        if (layers == null || layers.Length == 0)
         {
-            Debug.LogError("Texture mappings are empty. Cannot apply textures.");
+            Debug.LogError("No terrain layers assigned. Cannot apply textures.");
             return;
         }
 
-        Debug.Log($"Applying {settings.textureMappings.Length} texture mappings...");
+        int layerCount = layers.Length;
+        float[,,] splatmap = new float[width, length, layerCount];
 
-        // Validate alphamap resolution
-        int alphamapResolution = terrainData.alphamapResolution;
-        if (width != alphamapResolution || length != alphamapResolution)
+        Debug.Log($"Applying textures. Width: {width}, Length: {length}, Layers: {layerCount}");
+
+        for (int x = 0; x < width; x++)
         {
-            Debug.LogError($"Splatmap dimensions do not match alphamapResolution. Width: {width}, Length: {length}, AlphamapResolution: {alphamapResolution}");
-            return;
-        }
-
-        // Prepare the splatmap array
-        float[,,] splatmap = new float[alphamapResolution, alphamapResolution, settings.textureMappings.Length];
-
-        for (int x = 0; x < alphamapResolution; x++)
-        {
-            for (int y = 0; y < alphamapResolution; y++)
+            for (int y = 0; y < length; y++)
             {
                 float height = heights[x, y];
 
-                for (int i = 0; i < settings.textureMappings.Length; i++)
+                for (int i = 0; i < layerCount; i++)
                 {
                     var mapping = settings.textureMappings[i];
 
-                    if (mapping.terrainLayer == null)
-                    {
-                        Debug.LogError($"Texture mapping for layer {i} is null. Please assign a valid TerrainLayer.");
-                        return;
-                    }
-
                     if (height >= mapping.minHeight && height <= mapping.maxHeight)
                     {
-                        splatmap[x, y, i] = 1.0f; // Assign full weight to the corresponding texture layer
+                        splatmap[x, y, i] = 1.0f;
                     }
                     else
                     {
@@ -262,13 +267,64 @@ public class TerrainGeneratorManager : MonoBehaviour
             }
         }
 
-        // Normalize splatmap values
         NormalizeSplatmap(splatmap);
-
-        // Apply the splatmap
         terrainData.SetAlphamaps(0, 0, splatmap);
         Debug.Log("Textures successfully applied to terrain.");
     }
+
+    /// <summary>
+    /// Applies the terrain layers from the current texture mappings to the TerrainData.
+    /// </summary>
+    public void ApplyTerrainLayers()
+    {
+        if (terrainSettings == null || terrainSettings.textureMappings == null || terrainSettings.textureMappings.Length == 0)
+        {
+            Debug.LogWarning("No valid texture mappings available to apply. Skipping layer application.");
+            return;
+        }
+
+        TerrainLayer[] layers = GetTerrainLayers(terrainSettings.textureMappings);
+        if (layers == null || layers.Length == 0)
+        {
+            Debug.LogError("Failed to retrieve valid TerrainLayers. Cannot apply layers.");
+            return;
+        }
+
+        m_TerrainData.terrainLayers = layers;
+        Debug.Log("Terrain layers successfully applied.");
+    }
+
+
+    /// <summary>
+    /// Converts texture mappings from the scriptable object into an array of TerrainLayer objects.
+    /// </summary>
+    /// <param name="mappings">Array of texture mappings from the TerrainGenerationSettings.</param>
+    /// <returns>An array of TerrainLayer objects.</returns>
+    private TerrainLayer[] GetTerrainLayers(TerrainGenerationSettings.TerrainTextureMapping[] mappings)
+    {
+        if (mappings == null || mappings.Length == 0)
+        {
+            Debug.LogError("No texture mappings provided.");
+            return null;
+        }
+
+        List<TerrainLayer> layers = new List<TerrainLayer>();
+
+        foreach (var mapping in mappings)
+        {
+            if (mapping.terrainLayer != null)
+            {
+                layers.Add(mapping.terrainLayer);
+            }
+            else
+            {
+                Debug.LogError($"Missing TerrainLayer in texture mapping with range {mapping.minHeight}-{mapping.maxHeight}. Ensure all mappings have valid TerrainLayers.");
+            }
+        }
+
+        return layers.ToArray();
+    }
+
 
     /// <summary>
     /// Initializes the terrain generator based on the current settings.

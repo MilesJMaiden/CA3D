@@ -109,6 +109,20 @@ public class TerrainUIManager : MonoBehaviour
         }
 
         LoadValuesFromConfig(availableConfigs[index]);
+
+        // Trigger terrain regeneration and ensure layers are reapplied
+        RegenerateTerrain();
+
+        // Ensure terrain layers are updated using the TerrainGeneratorManager instance
+        if (terrainGeneratorManager != null)
+        {
+            terrainGeneratorManager.ApplyTerrainLayers();
+        }
+        else
+        {
+            Debug.LogError("TerrainGeneratorManager is null. Cannot apply terrain layers.");
+        }
+
         ClearError();
     }
 
@@ -335,6 +349,9 @@ public class TerrainUIManager : MonoBehaviour
     /// <summary>
     /// Regenerates the terrain using the current settings.
     /// </summary>
+    /// <summary>
+    /// Regenerates the terrain using the current settings.
+    /// </summary>
     private void RegenerateTerrain()
     {
         if (terrainGeneratorManager != null)
@@ -342,12 +359,16 @@ public class TerrainUIManager : MonoBehaviour
             Debug.Log("Regenerating terrain with updated settings...");
             terrainGeneratorManager.terrainSettings = currentSettings;
             terrainGeneratorManager.GenerateTerrain();
+
+            // Reapply terrain layers after generation
+            terrainGeneratorManager.ApplyTerrainLayers();
         }
         else
         {
             Debug.LogError("TerrainGeneratorManager is null!");
         }
     }
+
 
     #endregion
 
