@@ -58,6 +58,9 @@ MonoBehaviour:
   voronoiDistributionMode: 0
   customVoronoiPoints: []
   textureMappings:
-  - terrainLayer: {fileID: 0}
+  - terrainLayer: {fileID: 8574412962073106934, guid: 65e4c298b4a506246b587631e47dd610, type: 2}
     minHeight: 0
-    maxHeight: 0
+    maxHeight: 0.95
+  - terrainLayer: {fileID: 8574412962073106934, guid: 42f80b93d46647248a57751d9be92221, type: 2}
+    minHeight: 0.925
+    maxHeight: 1

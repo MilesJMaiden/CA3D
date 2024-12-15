@@ -409,7 +409,11 @@ public class TerrainUIManager : MonoBehaviour
         target.voronoiHeightRange = source.voronoiHeightRange;
         target.voronoiDistributionMode = source.voronoiDistributionMode;
         target.customVoronoiPoints = new List<Vector2>(source.customVoronoiPoints);
+
+        // Preserve texture mappings
+        target.textureMappings = source.textureMappings?.ToArray();
     }
+
 
     #endregion
 }

@@ -39,12 +39,31 @@ public class TerrainGeneratorManager : MonoBehaviour
 
     private void Awake()
     {
+        if (terrainSettings == null)
+        {
+            Debug.LogError("Terrain settings are not assigned to TerrainGeneratorManager. Please assign a valid ScriptableObject.");
+            return;
+        }
+
         InitializeTerrainComponents();
+
+        Debug.Log($"TerrainData resolutions: " +
+              $"heightmapResolution = {m_TerrainData.heightmapResolution}, " +
+              $"alphamapResolution = {m_TerrainData.alphamapResolution}, " +
+              $"detailResolution = {m_TerrainData.detailResolution}");
+
         ValidateAndAdjustDimensions();
-        AssignDefaultTextures();
+
+        if (terrainSettings.textureMappings == null || terrainSettings.textureMappings.Length == 0)
+        {
+            Debug.LogWarning("Texture mappings in the ScriptableObject are empty. Assigning default texture mappings.");
+            AssignDefaultTextures();
+        }
+
         InitializeGenerator();
         GenerateTerrain();
     }
+
 
     #endregion
 
@@ -64,6 +83,16 @@ public class TerrainGeneratorManager : MonoBehaviour
         ValidateAndAdjustDimensions();
         InitializeGenerator();
 
+        int alphamapResolution = m_TerrainData.alphamapResolution;
+
+        // Validate and synchronize dimensions
+        if (width != alphamapResolution || length != alphamapResolution)
+        {
+            Debug.LogWarning($"Adjusting width and length to match alphamapResolution: {alphamapResolution}");
+            width = alphamapResolution;
+            length = alphamapResolution;
+        }
+
         m_TerrainData.heightmapResolution = width + 1;
         m_TerrainData.size = new Vector3(width, height, length);
 
@@ -73,20 +102,20 @@ public class TerrainGeneratorManager : MonoBehaviour
         {
             m_TerrainData.SetHeights(0, 0, heights);
 
-            // Ensure texture mappings are assigned
-            AssignDefaultTextures();
-
             if (terrainSettings.textureMappings == null || terrainSettings.textureMappings.Length == 0)
             {
-                Debug.LogError("Texture mappings are still empty after attempting to assign defaults. Aborting texture application.");
-                return;
+                Debug.LogWarning("Texture mappings in the ScriptableObject are empty. Falling back to default texture mappings.");
+                AssignDefaultTextures();
             }
 
-            // Ensure alphamap resolution matches terrain width/length
-            m_TerrainData.alphamapResolution = width;
-
-            // Apply textures
-            ApplyTextures(heights, terrainSettings, width, length, m_TerrainData);
+            if (terrainSettings.textureMappings != null && terrainSettings.textureMappings.Length > 0)
+            {
+                ApplyTextures(heights, terrainSettings, width, length, m_TerrainData);
+            }
+            else
+            {
+                Debug.LogError("Fallback to default texture mappings failed. Aborting texture application.");
+            }
         }
         else
         {
@@ -94,13 +123,11 @@ public class TerrainGeneratorManager : MonoBehaviour
         }
     }
 
-
     private void AssignDefaultTextures()
     {
         if (terrainSettings.textureMappings == null || terrainSettings.textureMappings.Length == 0)
         {
             Debug.LogWarning("No texture mappings defined in the settings. Assigning default TerrainLayers.");
-
             terrainSettings.textureMappings = new TerrainGenerationSettings.TerrainTextureMapping[]
             {
             new TerrainGenerationSettings.TerrainTextureMapping
@@ -127,7 +154,7 @@ public class TerrainGeneratorManager : MonoBehaviour
         }
         else
         {
-            Debug.Log("Texture mappings are already defined in the scriptable object. Skipping default assignment.");
+            Debug.Log("Texture mappings are already defined in the ScriptableObject. Skipping default assignment.");
         }
     }
 
@@ -175,7 +202,13 @@ public class TerrainGeneratorManager : MonoBehaviour
     {
         m_Terrain = GetComponent<Terrain>();
         m_TerrainData = m_Terrain.terrainData;
+
+        // Adjust width and length to match alphamapResolution
+        int alphamapResolution = m_TerrainData.alphamapResolution;
+        width = alphamapResolution;
+        length = alphamapResolution;
     }
+
 
     /// <summary>
     /// Applies textures to the terrain using the provided settings and heightmap.
@@ -188,26 +221,34 @@ public class TerrainGeneratorManager : MonoBehaviour
             return;
         }
 
-        // Assign terrain layers
-        TerrainLayer[] terrainLayers = new TerrainLayer[settings.textureMappings.Length];
-        for (int i = 0; i < settings.textureMappings.Length; i++)
+        Debug.Log($"Applying {settings.textureMappings.Length} texture mappings...");
+
+        // Validate alphamap resolution
+        int alphamapResolution = terrainData.alphamapResolution;
+        if (width != alphamapResolution || length != alphamapResolution)
         {
-            terrainLayers[i] = settings.textureMappings[i].terrainLayer;
+            Debug.LogError($"Splatmap dimensions do not match alphamapResolution. Width: {width}, Length: {length}, AlphamapResolution: {alphamapResolution}");
+            return;
         }
-        terrainData.terrainLayers = terrainLayers;
 
-        // Prepare the splatmap array (width x length x texture layers)
-        float[,,] splatmap = new float[width, length, settings.textureMappings.Length];
+        // Prepare the splatmap array
+        float[,,] splatmap = new float[alphamapResolution, alphamapResolution, settings.textureMappings.Length];
 
-        for (int x = 0; x < width; x++)
+        for (int x = 0; x < alphamapResolution; x++)
         {
-            for (int y = 0; y < length; y++)
+            for (int y = 0; y < alphamapResolution; y++)
             {
                 float height = heights[x, y];
 
                 for (int i = 0; i < settings.textureMappings.Length; i++)
                 {
                     var mapping = settings.textureMappings[i];
+
+                    if (mapping.terrainLayer == null)
+                    {
+                        Debug.LogError($"Texture mapping for layer {i} is null. Please assign a valid TerrainLayer.");
+                        return;
+                    }
 
                     if (height >= mapping.minHeight && height <= mapping.maxHeight)
                     {
@@ -221,10 +262,10 @@ public class TerrainGeneratorManager : MonoBehaviour
             }
         }
 
-        // Normalize the splatmap values
+        // Normalize splatmap values
         NormalizeSplatmap(splatmap);
 
-        // Assign the splatmap to the terrain data
+        // Apply the splatmap
         terrainData.SetAlphamaps(0, 0, splatmap);
         Debug.Log("Textures successfully applied to terrain.");
     }
