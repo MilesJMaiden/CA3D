@@ -34,11 +34,14 @@ public class TerrainGenerator : ITerrainGenerator
     {
         float[,] heights = new float[width, length];
 
-        // Apply each modifier directly to the heights array
+        // Apply base height modifiers
         foreach (var modifier in heightModifiers)
         {
             modifier.ModifyHeight(heights, settings);
         }
+
+        // Apply feature-specific modifiers
+        ApplyFeatureModifiers(heights, width, length);
 
         NormalizeHeights(heights);
         return heights;
@@ -47,6 +50,41 @@ public class TerrainGenerator : ITerrainGenerator
     #endregion
 
     #region Private Methods
+
+    /// <summary>
+    /// Applies feature-specific modifiers like lakes, rivers, and trails.
+    /// </summary>
+    /// <param name="heights">The terrain height array to modify.</param>
+    /// <param name="width">The width of the terrain.</param>
+    /// <param name="length">The length of the terrain.</param>
+    private void ApplyFeatureModifiers(float[,] heights, int width, int length)
+    {
+        // Apply lake modifier
+        if (settings.useLakes)
+        {
+            Debug.Log("Applying Lake Modifier...");
+            var lakeModifier = new LakeModifier();
+            lakeModifier.ApplyFeature(heights, settings, new Vector2(0.5f, 0.5f), 1f, 0.2f); // Example parameters
+        }
+
+        // Apply river modifier
+        if (settings.useRivers)
+        {
+            Debug.Log("Applying River Modifier...");
+            var riverModifier = new RiverModifier();
+            riverModifier.ApplyFeature(heights, settings, new Vector2(0.1f, 0.9f), settings.riverIntensity, settings.riverWidth);
+        }
+
+        // Apply trail modifier
+        if (settings.useTrails)
+        {
+            Debug.Log("Applying Trail Modifier...");
+            var trailModifier = new TrailModifier();
+            trailModifier.ApplyFeature(heights, settings, new Vector2(0.2f, 0.3f), settings.trailIntensity, settings.trailWidth);
+        }
+
+        // Additional feature modifiers (e.g., waterfalls, lava) can be added here in a similar manner.
+    }
 
     /// <summary>
     /// Normalizes the height values to ensure they are within the range [0, 1].

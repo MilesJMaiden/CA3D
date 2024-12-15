@@ -53,6 +53,18 @@ public class TerrainUIManager : MonoBehaviour
     public TMP_InputField customVoronoiPointsField;
     public Toggle useVoronoiBiomesToggle;
 
+    // Rivers
+    public Toggle useRiversToggle;
+    public TMP_InputField riverWidthField;
+    public TMP_InputField riverIntensityField;
+
+    // Trails
+    public Toggle useTrailsToggle;
+    public TMP_InputField trailWidthField;
+    public TMP_InputField trailIntensityField;
+    public TMP_InputField trailResolutionField;
+
+
     public TMP_Text errorMessage;
 
     [Header("Terrain Generator Reference")]
@@ -174,6 +186,18 @@ public class TerrainUIManager : MonoBehaviour
 
         voronoiDistributionModeDropdown.value = (int)config.voronoiDistributionMode;
         customVoronoiPointsField.text = string.Join(";", config.customVoronoiPoints.Select(p => $"{p.x},{p.y}"));
+
+        // Rivers
+        SetField(useRiversToggle, config.useRivers);
+        SetField(riverWidthField, config.riverWidth.ToString());
+        SetField(riverIntensityField, config.riverIntensity.ToString());
+
+        // Trails
+        SetField(useTrailsToggle, config.useTrails);
+        SetField(trailWidthField, config.trailWidth.ToString());
+        SetField(trailIntensityField, config.trailIntensity.ToString());
+        SetField(trailResolutionField, config.trailResolution.ToString());
+
     }
 
     #endregion
@@ -183,83 +207,134 @@ public class TerrainUIManager : MonoBehaviour
     private void AddListeners()
     {
         // Perlin Noise
-        AddValidatedFieldListener(perlinLayersField, value => currentSettings.perlinLayers = int.Parse(value), 1, 100);
-        AddValidatedFieldListener(perlinBaseScaleField, value => currentSettings.perlinBaseScale = float.Parse(value), 0.1f, 500f);
+        AddValidatedFieldListener(perlinLayersField, value =>
+        {
+            currentSettings.perlinLayers = int.Parse(value);
+        }, 1, 100);
+
+        AddValidatedFieldListener(perlinBaseScaleField, value =>
+        {
+            currentSettings.perlinBaseScale = float.Parse(value);
+        }, 0.1f, 500f);
+
         AddValidatedFieldListener(perlinAmplitudeDecayField, value =>
         {
             currentSettings.perlinAmplitudeDecay = float.Parse(value);
-            Debug.Log($"Updated perlinAmplitudeDecay: {currentSettings.perlinAmplitudeDecay}");
-            RegenerateTerrain();
         }, 0f, 1f);
 
-        AddValidatedFieldListener(perlinFrequencyGrowthField, value => currentSettings.perlinFrequencyGrowth = float.Parse(value), 0.1f, 10f);
+        AddValidatedFieldListener(perlinFrequencyGrowthField, value =>
+        {
+            currentSettings.perlinFrequencyGrowth = float.Parse(value);
+        }, 0.1f, 10f);
 
         AddInputFieldListener(perlinOffsetXField, value =>
         {
-            float offsetX = float.Parse(value);
-            currentSettings.perlinOffset = new Vector2(offsetX, currentSettings.perlinOffset.y);
-            RegenerateTerrain();
+            if (float.TryParse(value, out float offsetX))
+            {
+                currentSettings.perlinOffset = new Vector2(offsetX, currentSettings.perlinOffset.y);
+                ClearError();
+                RegenerateTerrain();
+            }
+            else
+            {
+                DisplayError($"Invalid input for {perlinOffsetXField.name}.");
+            }
         });
 
         AddInputFieldListener(perlinOffsetYField, value =>
         {
-            float offsetY = float.Parse(value);
-            currentSettings.perlinOffset = new Vector2(currentSettings.perlinOffset.x, offsetY);
-            RegenerateTerrain();
+            if (float.TryParse(value, out float offsetY))
+            {
+                currentSettings.perlinOffset = new Vector2(currentSettings.perlinOffset.x, offsetY);
+                ClearError();
+                RegenerateTerrain();
+            }
+            else
+            {
+                DisplayError($"Invalid input for {perlinOffsetYField.name}.");
+            }
         });
 
-        // fBm
+        // Fractal Brownian Motion
         AddValidatedFieldListener(fBmLayersField, value =>
         {
             currentSettings.fBmLayers = int.Parse(value);
-            Debug.Log($"Updated fBmLayers: {currentSettings.fBmLayers}");
-            RegenerateTerrain();
         }, 1, 100);
 
         AddValidatedFieldListener(fBmBaseScaleField, value =>
         {
             currentSettings.fBmBaseScale = float.Parse(value);
-            Debug.Log($"Updated fBmBaseScale: {currentSettings.fBmBaseScale}");
-            RegenerateTerrain();
         }, 0.1f, 500f);
 
         AddValidatedFieldListener(fBmAmplitudeDecayField, value =>
         {
             currentSettings.fBmAmplitudeDecay = float.Parse(value);
-            Debug.Log($"Updated fBmAmplitudeDecay: {currentSettings.fBmAmplitudeDecay}");
-            RegenerateTerrain();
         }, 0f, 1f);
-
-        AddInputFieldListener(fBmOffsetXField, value =>
-        {
-            float offsetX = float.Parse(value);
-            currentSettings.fBmOffset = new Vector2(offsetX, currentSettings.fBmOffset.y);
-            RegenerateTerrain();
-        });
 
         AddValidatedFieldListener(fBmFrequencyGrowthField, value =>
         {
             currentSettings.fBmFrequencyGrowth = float.Parse(value);
-            Debug.Log($"Updated fBmFrequencyGrowth: {currentSettings.fBmFrequencyGrowth}");
-            RegenerateTerrain();
         }, 0.1f, 10f);
+
+        AddInputFieldListener(fBmOffsetXField, value =>
+        {
+            if (float.TryParse(value, out float offsetX))
+            {
+                currentSettings.fBmOffset = new Vector2(offsetX, currentSettings.fBmOffset.y);
+                ClearError();
+                RegenerateTerrain();
+            }
+            else
+            {
+                DisplayError($"Invalid input for {fBmOffsetXField.name}.");
+            }
+        });
 
         AddInputFieldListener(fBmOffsetYField, value =>
         {
-            float offsetY = float.Parse(value);
-            currentSettings.fBmOffset = new Vector2(currentSettings.fBmOffset.x, offsetY);
-            RegenerateTerrain();
+            if (float.TryParse(value, out float offsetY))
+            {
+                currentSettings.fBmOffset = new Vector2(currentSettings.fBmOffset.x, offsetY);
+                ClearError();
+                RegenerateTerrain();
+            }
+            else
+            {
+                DisplayError($"Invalid input for {fBmOffsetYField.name}.");
+            }
         });
 
         // Midpoint Displacement
-        AddValidatedFieldListener(displacementFactorField, value => currentSettings.displacementFactor = float.Parse(value), 0.1f, 10f);
-        AddValidatedFieldListener(displacementDecayRateField, value => currentSettings.displacementDecayRate = float.Parse(value), 0f, 1f);
-        AddValidatedFieldListener(randomSeedField, value => currentSettings.randomSeed = int.Parse(value), 0, 10000);
+        AddValidatedFieldListener(displacementFactorField, value =>
+        {
+            currentSettings.displacementFactor = float.Parse(value);
+        }, 0.1f, 10f);
+
+        AddValidatedFieldListener(displacementDecayRateField, value =>
+        {
+            currentSettings.displacementDecayRate = float.Parse(value);
+        }, 0f, 1f);
+
+        AddValidatedFieldListener(randomSeedField, value =>
+        {
+            currentSettings.randomSeed = int.Parse(value);
+        }, 0, 10000);
 
         // Voronoi Biomes
-        AddValidatedFieldListener(voronoiCellCountField, value => currentSettings.voronoiCellCount = int.Parse(value), 1, 100);
-        AddValidatedFieldListener(voronoiHeightRangeMinField, value => currentSettings.voronoiHeightRange.x = float.Parse(value), 0f, 1f);
-        AddValidatedFieldListener(voronoiHeightRangeMaxField, value => currentSettings.voronoiHeightRange.y = float.Parse(value), 0f, 1f);
+        AddValidatedFieldListener(voronoiCellCountField, value =>
+        {
+            currentSettings.voronoiCellCount = int.Parse(value);
+        }, 1, 100);
+
+        AddValidatedFieldListener(voronoiHeightRangeMinField, value =>
+        {
+            currentSettings.voronoiHeightRange.x = float.Parse(value);
+        }, 0f, 1f);
+
+        AddValidatedFieldListener(voronoiHeightRangeMaxField, value =>
+        {
+            currentSettings.voronoiHeightRange.y = float.Parse(value);
+        }, 0f, 1f);
 
         AddInputFieldListener(customVoronoiPointsField, value =>
         {
@@ -277,16 +352,133 @@ public class TerrainUIManager : MonoBehaviour
 
         AddDropdownListener(voronoiDistributionModeDropdown, value =>
         {
-            currentSettings.voronoiDistributionMode = (TerrainGenerationSettings.DistributionMode)(int)(DistributionMode)value;
+            currentSettings.voronoiDistributionMode = (TerrainGenerationSettings.DistributionMode)value;
+            ClearError();
             RegenerateTerrain();
         });
 
+        #region Rivers
+
+        // Rivers
+        AddFieldListener(useRiversToggle, value =>
+        {
+            currentSettings.useRivers = value;
+            ClearError();
+            RegenerateTerrain();
+        });
+
+        AddValidatedFieldListener(riverWidthField, value =>
+        {
+            if (float.TryParse(value, out float result) && result >= 1f && result <= 20f)
+            {
+                currentSettings.riverWidth = result;
+                ClearError();
+                RegenerateTerrain();
+            }
+            else
+            {
+                DisplayError($"Invalid input for {riverWidthField.name}. Must be between 1 and 20.");
+                riverWidthField.text = "1"; // Reset to minimum valid value
+            }
+        }, 1f, 20f);
+
+        AddValidatedFieldListener(riverIntensityField, value =>
+        {
+            if (float.TryParse(value, out float result) && result >= 0f && result <= 1f)
+            {
+                currentSettings.riverIntensity = result;
+                ClearError();
+                RegenerateTerrain();
+            }
+            else
+            {
+                DisplayError($"Invalid input for {riverIntensityField.name}. Must be between 0 and 1.");
+                riverIntensityField.text = "0"; // Reset to minimum valid value
+            }
+        }, 0f, 1f);
+
+        #endregion
+
+
+        #region Trails
+
+        // Trails
+        AddFieldListener(useTrailsToggle, value =>
+        {
+            currentSettings.useTrails = value;
+            ClearError();
+            RegenerateTerrain();
+        });
+
+        AddValidatedFieldListener(trailWidthField, value =>
+        {
+            if (float.TryParse(value, out float result) && result >= 1f && result <= 50f)
+            {
+                currentSettings.trailWidth = result;
+                ClearError();
+                RegenerateTerrain();
+            }
+            else
+            {
+                DisplayError($"Invalid input for {trailWidthField.name}. Must be between 1 and 50.");
+                trailWidthField.text = "1"; // Reset to minimum valid value
+            }
+        }, 1f, 50f);
+
+        AddValidatedFieldListener(trailIntensityField, value =>
+        {
+            if (float.TryParse(value, out float result) && result >= 0f && result <= 1f)
+            {
+                currentSettings.trailIntensity = result;
+                ClearError();
+                RegenerateTerrain();
+            }
+            else
+            {
+                DisplayError($"Invalid input for {trailIntensityField.name}. Must be between 0 and 1.");
+                trailIntensityField.text = "0"; // Reset to minimum valid value
+            }
+        }, 0f, 1f);
+
+        AddValidatedFieldListener(trailResolutionField, value =>
+        {
+            if (int.TryParse(value, out int result) && result >= 1 && result <= 256)
+            {
+                currentSettings.trailResolution = result;
+                ClearError();
+                RegenerateTerrain();
+            }
+            else
+            {
+                DisplayError($"Invalid input for {trailResolutionField.name}. Must be between 1 and 256.");
+                trailResolutionField.text = "1"; // Reset to minimum valid value
+            }
+        }, 1, 256);
+
+        #endregion
+
         // Toggles
-        AddFieldListener(usePerlinNoiseToggle, value => currentSettings.usePerlinNoise = value);
-        AddFieldListener(useFractalBrownianMotionToggle, value => currentSettings.useFractalBrownianMotion = value);
-        AddFieldListener(useMidPointDisplacementToggle, value => currentSettings.useMidPointDisplacement = value);
-        AddFieldListener(useVoronoiBiomesToggle, value => currentSettings.useVoronoiBiomes = value);
+        AddFieldListener(usePerlinNoiseToggle, value =>
+        {
+            currentSettings.usePerlinNoise = value;
+        });
+
+        AddFieldListener(useFractalBrownianMotionToggle, value =>
+        {
+            currentSettings.useFractalBrownianMotion = value;
+        });
+
+        AddFieldListener(useMidPointDisplacementToggle, value =>
+        {
+            currentSettings.useMidPointDisplacement = value;
+        });
+
+        AddFieldListener(useVoronoiBiomesToggle, value =>
+        {
+            currentSettings.useVoronoiBiomes = value;
+        });
     }
+
 
 
     private void AddValidatedFieldListener(TMP_InputField field, System.Action<string> onChanged, float min, float max)
@@ -348,24 +540,45 @@ public class TerrainUIManager : MonoBehaviour
 
     /// <summary>
     /// Regenerates the terrain using the current settings.
-    /// </summary>
-    /// <summary>
-    /// Regenerates the terrain using the current settings.
+    /// Ensures all dependencies are correctly assigned before attempting regeneration.
     /// </summary>
     private void RegenerateTerrain()
     {
-        if (terrainGeneratorManager != null)
+        if (terrainGeneratorManager == null)
         {
-            Debug.Log("Regenerating terrain with updated settings...");
+            DisplayError("TerrainGeneratorManager is not assigned! Please ensure it is properly set in the Inspector or initialized at runtime.");
+            Debug.LogError("TerrainGeneratorManager is null! Unable to regenerate terrain.");
+            return;
+        }
+
+        if (currentSettings == null)
+        {
+            DisplayError("TerrainGenerationSettings is null! Ensure a valid configuration is selected.");
+            Debug.LogError("Current TerrainGenerationSettings is null! Cannot regenerate terrain.");
+            return;
+        }
+
+        Debug.Log("Regenerating terrain with updated settings...");
+
+        try
+        {
+            // Apply the current settings to the manager
             terrainGeneratorManager.terrainSettings = currentSettings;
+
+            // Trigger the terrain generation process
             terrainGeneratorManager.GenerateTerrain();
 
             // Reapply terrain layers after generation
             terrainGeneratorManager.ApplyTerrainLayers();
+
+            Debug.Log("Terrain regeneration completed successfully.");
+            ClearError(); // Clear any previous error messages
         }
-        else
+        catch (System.Exception ex)
         {
-            Debug.LogError("TerrainGeneratorManager is null!");
+            // Log unexpected errors during the terrain regeneration process
+            DisplayError("An error occurred while regenerating terrain. Check the console for details.");
+            Debug.LogError($"Exception during terrain regeneration: {ex.Message}\n{ex.StackTrace}");
         }
     }
 
@@ -406,6 +619,7 @@ public class TerrainUIManager : MonoBehaviour
 
     private void CopySettings(TerrainGenerationSettings source, TerrainGenerationSettings target)
     {
+        // Perlin Noise Settings
         target.usePerlinNoise = source.usePerlinNoise;
         target.perlinLayers = source.perlinLayers;
         target.perlinBaseScale = source.perlinBaseScale;
@@ -413,6 +627,7 @@ public class TerrainUIManager : MonoBehaviour
         target.perlinFrequencyGrowth = source.perlinFrequencyGrowth;
         target.perlinOffset = source.perlinOffset;
 
+        // Fractal Brownian Motion (fBm) Settings
         target.useFractalBrownianMotion = source.useFractalBrownianMotion;
         target.fBmLayers = source.fBmLayers;
         target.fBmBaseScale = source.fBmBaseScale;
@@ -420,20 +635,38 @@ public class TerrainUIManager : MonoBehaviour
         target.fBmFrequencyGrowth = source.fBmFrequencyGrowth;
         target.fBmOffset = source.fBmOffset;
 
+        // Midpoint Displacement Settings
         target.useMidPointDisplacement = source.useMidPointDisplacement;
         target.displacementFactor = source.displacementFactor;
         target.displacementDecayRate = source.displacementDecayRate;
         target.randomSeed = source.randomSeed;
 
+        // Voronoi Biomes Settings
         target.useVoronoiBiomes = source.useVoronoiBiomes;
         target.voronoiCellCount = source.voronoiCellCount;
         target.voronoiHeightRange = source.voronoiHeightRange;
         target.voronoiDistributionMode = source.voronoiDistributionMode;
         target.customVoronoiPoints = new List<Vector2>(source.customVoronoiPoints);
 
-        // Preserve texture mappings
+        // River Settings
+        target.useRivers = source.useRivers;
+        target.riverWidth = source.riverWidth;
+        target.riverIntensity = source.riverIntensity;
+
+        // Trail Settings
+        target.useTrails = source.useTrails;
+        target.trailWidth = source.trailWidth;
+        target.trailIntensity = source.trailIntensity;
+        target.trailResolution = source.trailResolution;
+
+        // Lake Settings
+        target.useLakes = source.useLakes;
+        target.lakeHeight = source.lakeHeight;
+
+        // Texture Mappings
         target.textureMappings = source.textureMappings?.ToArray();
     }
+
 
 
     #endregion

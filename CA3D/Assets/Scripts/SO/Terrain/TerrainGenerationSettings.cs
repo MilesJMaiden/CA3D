@@ -119,5 +119,40 @@ public class TerrainGenerationSettings : ScriptableObject
         public float maxHeight;          // Maximum height threshold
     }
 
+    [Header("Lake Settings")]
+    [Tooltip("Enable or disable lake generation.")]
+    public bool useLakes;
+
+    [Tooltip("Height level for the lake.")]
+    public float lakeHeight = 0.1f;
+
+    #region River Settings
+    [Header("River Settings")]
+    [Tooltip("Enable or disable river generation.")]
+    public bool useRivers;
+
+    [Tooltip("Width of the river.")]
+    public float riverWidth = 5.0f;
+
+    [Tooltip("Intensity of river carving.")]
+    public float riverIntensity = 0.5f;
+    #endregion
+
+    #region Trail Settings
+    [Header("Trail Settings")]
+    [Tooltip("Enable or disable trail generation.")]
+    public bool useTrails;
+
+    [Tooltip("Width of the trails.")]
+    public float trailWidth = 3.0f;
+
+    [Tooltip("Intensity of trail carving.")]
+    public float trailIntensity = 0.3f;
+
+    [Tooltip("Number of control points for trail curves.")]
+    public int trailResolution = 10;
+    #endregion
+
+
     #endregion
 }

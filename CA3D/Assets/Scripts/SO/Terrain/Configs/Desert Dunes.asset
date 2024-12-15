@@ -37,18 +37,18 @@ MonoBehaviour:
     - serializedVersion: 3
       time: 0
       value: 0
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
+      inSlope: 1
+      outSlope: 1
+      tangentMode: 34
       weightedMode: 0
       inWeight: 0
       outWeight: 0
     - serializedVersion: 3
       time: 1
       value: 1
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
+      inSlope: 1
+      outSlope: 1
+      tangentMode: 34
       weightedMode: 0
       inWeight: 0
       outWeight: 0
@@ -67,3 +67,12 @@ MonoBehaviour:
   - terrainLayer: {fileID: 8574412962073106934, guid: 65e4c298b4a506246b587631e47dd610, type: 2}
     minHeight: 0.2
     maxHeight: 1
+  useLakes: 0
+  lakeHeight: 0.1
+  useRivers: 0
+  riverWidth: 5
+  riverIntensity: 0.5
+  useTrails: 0
+  trailWidth: 3
+  trailIntensity: 0.3
+  trailResolution: 10
