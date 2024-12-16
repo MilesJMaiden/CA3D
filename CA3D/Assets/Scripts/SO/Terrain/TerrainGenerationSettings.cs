@@ -104,9 +104,5 @@ public class TerrainGenerationSettings : ScriptableObject
     public Vector2 trailEndPoint = new Vector2(0.5f, 0.5f);
     public bool useTrailRandomness = true;
 
-    // Add the trail mapping into the texture mappings
-    [Tooltip("Mapping for the trail layer, added to the end of textureMappings when trails are enabled.")]
-    public TerrainTextureMapping trailMapping;
-
     #endregion
 }

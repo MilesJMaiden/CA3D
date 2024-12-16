@@ -38,9 +38,6 @@ public class TrailModifier : IFeatureModifier
             return;
         }
 
-        // Ensure the trail layer is added to the terrain
-        AddTerrainLayer(terrain, trailLayer);
-
         // Modify heightmap for trails
         Vector2[] trailPoints = GenerateTrailPoints(settings, startPoint);
         ApplyTrailHeight(heights, settings, trailPoints);
@@ -137,18 +134,6 @@ public class TrailModifier : IFeatureModifier
         }
 
         return points;
-    }
-
-    private void AddTerrainLayer(Terrain terrain, TerrainLayer layer)
-    {
-        TerrainData terrainData = terrain.terrainData;
-        List<TerrainLayer> layers = new List<TerrainLayer>(terrainData.terrainLayers);
-
-        if (!layers.Contains(layer))
-        {
-            layers.Add(layer);
-            terrainData.terrainLayers = layers.ToArray();
-        }
     }
 
     private int GetLayerIndex(Terrain terrain, string layerName)

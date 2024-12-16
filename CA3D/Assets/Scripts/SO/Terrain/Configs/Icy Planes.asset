@@ -80,7 +80,3 @@ MonoBehaviour:
   trailRandomness: 0.1
   trailEndPoint: {x: 0.9, y: 0.9}
   useTrailRandomness: 1
-  trailMapping:
-    terrainLayer: {fileID: 8574412962073106934, guid: 4c8bc482e83ba9c4da052b7b6a03b369, type: 2}
-    minHeight: 0
-    maxHeight: 1

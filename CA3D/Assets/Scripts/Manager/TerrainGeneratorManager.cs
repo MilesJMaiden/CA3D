@@ -85,7 +85,6 @@ public class TerrainGeneratorManager : MonoBehaviour
 
         int alphamapResolution = m_TerrainData.alphamapResolution;
 
-        // Validate and synchronize dimensions
         if (width != alphamapResolution || length != alphamapResolution)
         {
             Debug.LogWarning($"Adjusting width and length to match alphamapResolution: {alphamapResolution}");
@@ -95,6 +94,9 @@ public class TerrainGeneratorManager : MonoBehaviour
 
         m_TerrainData.heightmapResolution = width + 1;
         m_TerrainData.size = new Vector3(width, height, length);
+
+        // Synchronize terrain layers before generating terrain
+        SyncTerrainLayersWithMappings();
 
         float[,] heights = terrainGenerator.GenerateHeights(width, length);
 
@@ -106,16 +108,10 @@ public class TerrainGeneratorManager : MonoBehaviour
             {
                 Debug.LogWarning("Texture mappings in the ScriptableObject are empty. Falling back to default texture mappings.");
                 AssignDefaultTextures();
+                SyncTerrainLayersWithMappings(); // Ensure layers match the new default mappings
             }
 
-            if (terrainSettings.textureMappings != null && terrainSettings.textureMappings.Length > 0)
-            {
-                ApplyTextures(heights, terrainSettings, width, length, m_TerrainData);
-            }
-            else
-            {
-                Debug.LogError("Fallback to default texture mappings failed. Aborting texture application.");
-            }
+            ApplyTextures(heights, terrainSettings, width, length, m_TerrainData);
         }
         else
         {
@@ -147,30 +143,9 @@ public class TerrainGeneratorManager : MonoBehaviour
         }
     };
 
-        // Add the trail layer mapping dynamically if trails are enabled
-        if (terrainSettings.useTrails)
-        {
-            var trailLayer = Resources.Load<TerrainLayer>("DefaultTrailLayer");
-            if (trailLayer != null)
-            {
-                terrainSettings.trailMapping = new TerrainGenerationSettings.TerrainTextureMapping
-                {
-                    terrainLayer = trailLayer,
-                    minHeight = 0f, // Full coverage
-                    maxHeight = 1f
-                };
-                defaultMappings.Add(terrainSettings.trailMapping);
-                Debug.Log("Default trail mapping added successfully.");
-            }
-            else
-            {
-                Debug.LogWarning("Trail layer could not be loaded from resources.");
-            }
-        }
-
         terrainSettings.textureMappings = defaultMappings.ToArray();
+        Debug.Log("Default texture mappings assigned.");
     }
-
 
 
     /// <summary>
@@ -215,13 +190,31 @@ public class TerrainGeneratorManager : MonoBehaviour
     private void InitializeTerrainComponents()
     {
         m_Terrain = GetComponent<Terrain>();
-        m_TerrainData = m_Terrain.terrainData;
 
-        // Adjust width and length to match alphamapResolution
+        if (m_Terrain.terrainData == null)
+        {
+            m_TerrainData = new TerrainData
+            {
+                heightmapResolution = width + 1,
+                size = new Vector3(width, height, length)
+            };
+            m_Terrain.terrainData = m_TerrainData;
+            Debug.Log("TerrainData dynamically created.");
+        }
+        else
+        {
+            m_TerrainData = m_Terrain.terrainData;
+        }
+
+        // Reset terrain layers to avoid layer mismatches
+        m_TerrainData.terrainLayers = null;
+
+        // Adjust width and length to match alphamap resolution
         int alphamapResolution = m_TerrainData.alphamapResolution;
         width = alphamapResolution;
         length = alphamapResolution;
     }
+
 
     /// <summary>
     /// Applies textures to the terrain using the provided settings and heightmap.
@@ -229,6 +222,7 @@ public class TerrainGeneratorManager : MonoBehaviour
     private void ApplyTextures(float[,] heights, TerrainGenerationSettings settings, int width, int length, TerrainData terrainData)
     {
         TerrainLayer[] layers = terrainData.terrainLayers;
+
         if (layers == null || layers.Length == 0)
         {
             Debug.LogError("No terrain layers assigned. Cannot apply textures.");
@@ -237,8 +231,9 @@ public class TerrainGeneratorManager : MonoBehaviour
 
         if (settings.textureMappings == null || settings.textureMappings.Length != layers.Length)
         {
-            Debug.LogError($"Mismatch between terrain layers ({layers.Length}) and texture mappings ({settings.textureMappings?.Length ?? 0}). Cannot proceed.");
-            return;
+            Debug.LogWarning($"Mismatch between terrain layers ({layers.Length}) and texture mappings ({settings.textureMappings?.Length ?? 0}). Synchronizing layers...");
+            SyncTerrainLayersWithMappings();
+            layers = terrainData.terrainLayers; // Refresh layers after synchronization
         }
 
         int layerCount = layers.Length;
@@ -259,23 +254,8 @@ public class TerrainGeneratorManager : MonoBehaviour
 
         NormalizeSplatmap(splatmap);
         terrainData.SetAlphamaps(0, 0, splatmap);
+        Debug.Log("Textures successfully applied to terrain.");
     }
-
-    /// <summary>
-    /// Determines if the given position corresponds to a trail location.
-    /// </summary>
-    private bool IsTrailPosition(TerrainGenerationSettings settings, int x, int y, int width, int length)
-    {
-        if (!settings.useTrails)
-            return false;
-
-        Vector2 normalizedPosition = new Vector2((float)x / width, (float)y / length);
-        float distanceToTrail = Vector2.Distance(normalizedPosition, settings.trailEndPoint);
-
-        // Check if the position falls within the trail width
-        return distanceToTrail <= settings.trailWidth / Mathf.Max(width, length);
-    }
-
 
     /// <summary>
     /// Applies the terrain layers from the current texture mappings to the TerrainData.
@@ -329,7 +309,6 @@ public class TerrainGeneratorManager : MonoBehaviour
 
         return layers.ToArray();
     }
-
 
     /// <summary>
     /// Initializes the terrain generator based on the current settings.
@@ -398,6 +377,41 @@ public class TerrainGeneratorManager : MonoBehaviour
             uiManager.DisplayError(message);
         }
     }
+
+    /// <summary>
+    /// Synchronizes terrain layers with the current texture mappings.
+    /// </summary>
+    private void SyncTerrainLayersWithMappings()
+    {
+        if (terrainSettings.textureMappings == null || terrainSettings.textureMappings.Length == 0)
+        {
+            Debug.LogError("Texture mappings are null or empty. Cannot sync terrain layers.");
+            return;
+        }
+
+        var layers = new List<TerrainLayer>();
+        foreach (var mapping in terrainSettings.textureMappings)
+        {
+            if (mapping.terrainLayer != null)
+            {
+                layers.Add(mapping.terrainLayer);
+            }
+            else
+            {
+                Debug.LogError($"Texture mapping contains a null TerrainLayer. Skipping mapping: {mapping.minHeight} to {mapping.maxHeight}");
+            }
+        }
+
+        if (layers.Count == 0)
+        {
+            Debug.LogError("No valid terrain layers could be created from the texture mappings.");
+            return;
+        }
+
+        m_TerrainData.terrainLayers = layers.ToArray();
+        Debug.Log($"Synchronized terrain layers. Total layers: {m_TerrainData.terrainLayers.Length}");
+    }
+
 
     #endregion
 }

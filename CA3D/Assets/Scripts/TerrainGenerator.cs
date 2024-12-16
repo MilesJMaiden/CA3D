@@ -59,22 +59,6 @@ public class TerrainGenerator : ITerrainGenerator
     /// <param name="length">The length of the terrain.</param>
     private void ApplyFeatureModifiers(float[,] heights, int width, int length)
     {
-        // Apply lake modifier
-        if (settings.useLakes)
-        {
-            Debug.Log("Applying Lake Modifier...");
-            var lakeModifier = new LakeModifier();
-            lakeModifier.ApplyFeature(heights, settings, new Vector2(0.5f, 0.5f), 1f, 0.2f); // Example parameters
-        }
-
-        // Apply river modifier
-        if (settings.useRivers)
-        {
-            Debug.Log("Applying River Modifier...");
-            var riverModifier = new RiverModifier();
-            riverModifier.ApplyFeature(heights, settings, new Vector2(0.1f, 0.9f), settings.riverIntensity, settings.riverWidth);
-        }
-
         // Apply trail modifier
         if (settings.useTrails)
         {
