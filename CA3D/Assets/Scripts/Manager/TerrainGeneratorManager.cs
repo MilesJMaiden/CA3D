@@ -125,53 +125,50 @@ public class TerrainGeneratorManager : MonoBehaviour
 
     private void AssignDefaultTextures()
     {
-        if (terrainSettings.textureMappings == null || terrainSettings.textureMappings.Length == 0)
-        {
-            Debug.LogWarning("Texture mappings in the ScriptableObject are empty. Assigning default TerrainLayers from resources.");
-
-            terrainSettings.textureMappings = new TerrainGenerationSettings.TerrainTextureMapping[]
-            {
-            new TerrainGenerationSettings.TerrainTextureMapping
-            {
-                terrainLayer = Resources.Load<TerrainLayer>("DefaultGrassLayer"),
-                minHeight = 0.0f,
-                maxHeight = 0.3f
-            },
-            new TerrainGenerationSettings.TerrainTextureMapping
-            {
-                terrainLayer = Resources.Load<TerrainLayer>("DefaultRockLayer"),
-                minHeight = 0.3f,
-                maxHeight = 0.6f
-            },
-            new TerrainGenerationSettings.TerrainTextureMapping
-            {
-                terrainLayer = Resources.Load<TerrainLayer>("DefaultSnowLayer"),
-                minHeight = 0.6f,
-                maxHeight = 1.0f
-            }
-            };
-
-            Debug.Log("Default TerrainLayers assigned successfully.");
-        }
-        else
-        {
-            Debug.Log("Using texture mappings defined in the ScriptableObject.");
-        }
-    }
-
-    private void ApplyTerrainLayers(TerrainData terrainData, TerrainGenerationSettings settings)
+        var defaultMappings = new List<TerrainGenerationSettings.TerrainTextureMapping>
     {
-        // Convert mappings to TerrainLayers
-        TerrainLayer[] layers = GetTerrainLayers(settings.textureMappings);
-
-        if (layers == null || layers.Length == 0)
+        new TerrainGenerationSettings.TerrainTextureMapping
         {
-            Debug.LogError("No valid TerrainLayers found in texture mappings. Aborting layer assignment.");
-            return;
+            terrainLayer = Resources.Load<TerrainLayer>("DefaultGrassLayer"),
+            minHeight = 0.0f,
+            maxHeight = 0.3f
+        },
+        new TerrainGenerationSettings.TerrainTextureMapping
+        {
+            terrainLayer = Resources.Load<TerrainLayer>("DefaultRockLayer"),
+            minHeight = 0.3f,
+            maxHeight = 0.6f
+        },
+        new TerrainGenerationSettings.TerrainTextureMapping
+        {
+            terrainLayer = Resources.Load<TerrainLayer>("DefaultSnowLayer"),
+            minHeight = 0.6f,
+            maxHeight = 1.0f
+        }
+    };
+
+        // Add the trail layer mapping dynamically if trails are enabled
+        if (terrainSettings.useTrails)
+        {
+            var trailLayer = Resources.Load<TerrainLayer>("DefaultTrailLayer");
+            if (trailLayer != null)
+            {
+                terrainSettings.trailMapping = new TerrainGenerationSettings.TerrainTextureMapping
+                {
+                    terrainLayer = trailLayer,
+                    minHeight = 0f, // Full coverage
+                    maxHeight = 1f
+                };
+                defaultMappings.Add(terrainSettings.trailMapping);
+                Debug.Log("Default trail mapping added successfully.");
+            }
+            else
+            {
+                Debug.LogWarning("Trail layer could not be loaded from resources.");
+            }
         }
 
-        terrainData.terrainLayers = layers;
-        Debug.Log($"Assigned {layers.Length} terrain layers to the TerrainData.");
+        terrainSettings.textureMappings = defaultMappings.ToArray();
     }
 
 
@@ -226,51 +223,59 @@ public class TerrainGeneratorManager : MonoBehaviour
         length = alphamapResolution;
     }
 
-
     /// <summary>
     /// Applies textures to the terrain using the provided settings and heightmap.
     /// </summary>
     private void ApplyTextures(float[,] heights, TerrainGenerationSettings settings, int width, int length, TerrainData terrainData)
     {
         TerrainLayer[] layers = terrainData.terrainLayers;
-
         if (layers == null || layers.Length == 0)
         {
             Debug.LogError("No terrain layers assigned. Cannot apply textures.");
             return;
         }
 
+        if (settings.textureMappings == null || settings.textureMappings.Length != layers.Length)
+        {
+            Debug.LogError($"Mismatch between terrain layers ({layers.Length}) and texture mappings ({settings.textureMappings?.Length ?? 0}). Cannot proceed.");
+            return;
+        }
+
         int layerCount = layers.Length;
         float[,,] splatmap = new float[width, length, layerCount];
-
-        Debug.Log($"Applying textures. Width: {width}, Length: {length}, Layers: {layerCount}");
 
         for (int x = 0; x < width; x++)
         {
             for (int y = 0; y < length; y++)
             {
                 float height = heights[x, y];
-
                 for (int i = 0; i < layerCount; i++)
                 {
                     var mapping = settings.textureMappings[i];
-
-                    if (height >= mapping.minHeight && height <= mapping.maxHeight)
-                    {
-                        splatmap[x, y, i] = 1.0f;
-                    }
-                    else
-                    {
-                        splatmap[x, y, i] = 0.0f;
-                    }
+                    splatmap[x, y, i] = (height >= mapping.minHeight && height <= mapping.maxHeight) ? 1.0f : 0.0f;
                 }
             }
         }
 
         NormalizeSplatmap(splatmap);
         terrainData.SetAlphamaps(0, 0, splatmap);
-        Debug.Log("Textures successfully applied to terrain.");
     }
+
+    /// <summary>
+    /// Determines if the given position corresponds to a trail location.
+    /// </summary>
+    private bool IsTrailPosition(TerrainGenerationSettings settings, int x, int y, int width, int length)
+    {
+        if (!settings.useTrails)
+            return false;
+
+        Vector2 normalizedPosition = new Vector2((float)x / width, (float)y / length);
+        float distanceToTrail = Vector2.Distance(normalizedPosition, settings.trailEndPoint);
+
+        // Check if the position falls within the trail width
+        return distanceToTrail <= settings.trailWidth / Mathf.Max(width, length);
+    }
+
 
     /// <summary>
     /// Applies the terrain layers from the current texture mappings to the TerrainData.

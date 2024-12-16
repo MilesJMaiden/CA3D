@@ -64,6 +64,13 @@ public class TerrainUIManager : MonoBehaviour
     public TMP_InputField trailIntensityField;
     public TMP_InputField trailResolutionField;
 
+    public TMP_InputField trailSmoothnessField;
+    public TMP_InputField trailRandomnessField;
+    public TMP_InputField trailEndPointXField;
+    public TMP_InputField trailEndPointYField;
+    public Toggle useTrailRandomnessToggle;
+
+
 
     public TMP_Text errorMessage;
 
@@ -192,11 +199,18 @@ public class TerrainUIManager : MonoBehaviour
         SetField(riverWidthField, config.riverWidth.ToString());
         SetField(riverIntensityField, config.riverIntensity.ToString());
 
-        // Trails
+        // Setting fields for trail settings from the configuration
         SetField(useTrailsToggle, config.useTrails);
         SetField(trailWidthField, config.trailWidth.ToString());
         SetField(trailIntensityField, config.trailIntensity.ToString());
         SetField(trailResolutionField, config.trailResolution.ToString());
+        SetField(trailSmoothnessField, config.trailSmoothness.ToString());
+        SetField(trailRandomnessField, config.trailRandomness.ToString());
+        SetField(trailEndPointXField, config.trailEndPoint.x.ToString());
+        SetField(trailEndPointYField, config.trailEndPoint.y.ToString());
+        SetField(useTrailRandomnessToggle, config.useTrailRandomness);
+
+
 
     }
 
@@ -400,16 +414,7 @@ public class TerrainUIManager : MonoBehaviour
         #endregion
 
 
-        #region Trails
-
-        // Trails
-        AddFieldListener(useTrailsToggle, value =>
-        {
-            currentSettings.useTrails = value;
-            ClearError();
-            RegenerateTerrain();
-        });
-
+        // Adding listeners for trail settings
         AddValidatedFieldListener(trailWidthField, value =>
         {
             if (float.TryParse(value, out float result) && result >= 1f && result <= 50f)
@@ -455,7 +460,70 @@ public class TerrainUIManager : MonoBehaviour
             }
         }, 1, 256);
 
-        #endregion
+        AddValidatedFieldListener(trailSmoothnessField, value =>
+        {
+            if (float.TryParse(value, out float result) && result >= 0f && result <= 1f)
+            {
+                currentSettings.trailSmoothness = Mathf.Clamp(result, 0f, 1f);
+                ClearError();
+                RegenerateTerrain();
+            }
+            else
+            {
+                DisplayError($"Invalid input for {trailSmoothnessField.name}. Must be between 0 and 1.");
+                trailSmoothnessField.text = "0"; // Reset to minimum valid value
+            }
+        }, 0f, 1f);
+
+        AddValidatedFieldListener(trailRandomnessField, value =>
+        {
+            if (float.TryParse(value, out float result) && result >= 0f && result <= 5f)
+            {
+                currentSettings.trailRandomness = result;
+                ClearError();
+                RegenerateTerrain();
+            }
+            else
+            {
+                DisplayError($"Invalid input for {trailRandomnessField.name}. Must be between 0 and 5.");
+                trailRandomnessField.text = "0"; // Reset to minimum valid value
+            }
+        }, 0f, 5f);
+
+        AddInputFieldListener(trailEndPointXField, value =>
+        {
+            if (float.TryParse(value, out float endPointX))
+            {
+                currentSettings.trailEndPoint = new Vector2(endPointX, currentSettings.trailEndPoint.y);
+                ClearError();
+                RegenerateTerrain();
+            }
+            else
+            {
+                DisplayError($"Invalid input for {trailEndPointXField.name}.");
+            }
+        });
+
+        AddInputFieldListener(trailEndPointYField, value =>
+        {
+            if (float.TryParse(value, out float endPointY))
+            {
+                currentSettings.trailEndPoint = new Vector2(currentSettings.trailEndPoint.x, endPointY);
+                ClearError();
+                RegenerateTerrain();
+            }
+            else
+            {
+                DisplayError($"Invalid input for {trailEndPointYField.name}.");
+            }
+        });
+
+        AddFieldListener(useTrailRandomnessToggle, value =>
+        {
+            currentSettings.useTrailRandomness = value;
+            ClearError();
+            RegenerateTerrain();
+        });
 
         // Toggles
         AddFieldListener(usePerlinNoiseToggle, value =>
@@ -581,7 +649,6 @@ public class TerrainUIManager : MonoBehaviour
             Debug.LogError($"Exception during terrain regeneration: {ex.Message}\n{ex.StackTrace}");
         }
     }
-
 
     #endregion
 

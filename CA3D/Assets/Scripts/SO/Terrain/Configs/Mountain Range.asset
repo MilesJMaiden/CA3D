@@ -60,14 +60,14 @@ MonoBehaviour:
   textureMappings:
   - terrainLayer: {fileID: 8574412962073106934, guid: a0e0246d9cb9f7942a0641f9781822cf, type: 2}
     minHeight: 0
-    maxHeight: 0.325
+    maxHeight: 0.3
   - terrainLayer: {fileID: 8574412962073106934, guid: 42f80b93d46647248a57751d9be92221, type: 2}
     minHeight: 0.3
-    maxHeight: 0.675
+    maxHeight: 0.6
   - terrainLayer: {fileID: 8574412962073106934, guid: 987ec3d578658214796a2a7ea4b8f615, type: 2}
-    minHeight: 0.625
+    minHeight: 0.6
     maxHeight: 1
-  useLakes: 0
+  useLakes: 1
   lakeHeight: 0.1
   useRivers: 0
   riverWidth: 5
@@ -76,3 +76,11 @@ MonoBehaviour:
   trailWidth: 3
   trailIntensity: 0.01
   trailResolution: 256
+  trailSmoothness: 0.5
+  trailRandomness: 0.1
+  trailEndPoint: {x: 0.9, y: 0.9}
+  useTrailRandomness: 1
+  trailMapping:
+    terrainLayer: {fileID: 8574412962073106934, guid: 4c8bc482e83ba9c4da052b7b6a03b369, type: 2}
+    minHeight: 0
+    maxHeight: 1
