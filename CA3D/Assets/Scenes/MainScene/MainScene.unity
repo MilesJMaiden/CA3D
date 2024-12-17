@@ -24413,9 +24413,9 @@ MonoBehaviour:
   voronoiDistributionModeDropdown: {fileID: 1411123062}
   customVoronoiPointsField: {fileID: 1401030676}
   useVoronoiBiomesToggle: {fileID: 863877172}
-  useRiversToggle: {fileID: 0}
-  riverWidthField: {fileID: 0}
-  riverIntensityField: {fileID: 1438943878}
+  useRiversToggle: {fileID: 1322454729}
+  riverWidthField: {fileID: 1623389835}
+  riverIntensityField: {fileID: 1671378502}
   useTrailsToggle: {fileID: 1917704217}
   trailWidthField: {fileID: 1438943878}
   trailIntensityField: {fileID: 2122776412}
