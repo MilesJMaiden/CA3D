@@ -67,7 +67,7 @@ MonoBehaviour:
   - terrainLayer: {fileID: 8574412962073106934, guid: 987ec3d578658214796a2a7ea4b8f615, type: 2}
     minHeight: 0.775
     maxHeight: 1
-  useLakes: 1
+  useLakes: 0
   lakeHeight: 0.1
   useRivers: 0
   riverWidth: 5
@@ -79,4 +79,4 @@ MonoBehaviour:
   trailSmoothness: 0.5
   trailRandomness: 0.1
   trailEndPoint: {x: 0.9, y: 0.9}
-  useTrailRandomness: 1
+  useTrailRandomness: 0

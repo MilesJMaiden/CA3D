@@ -79,4 +79,4 @@ MonoBehaviour:
   trailSmoothness: 0.5
   trailRandomness: 0.1
   trailEndPoint: {x: 0.9, y: 0.9}
-  useTrailRandomness: 1
+  useTrailRandomness: 0
