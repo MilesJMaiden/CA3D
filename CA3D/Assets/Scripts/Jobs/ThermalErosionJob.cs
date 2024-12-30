@@ -1,76 +1,64 @@
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
-using Unity.Mathematics;
-using Unity.Burst;
 
 [BurstCompile]
 public struct ThermalErosionJob : IJobParallelFor
 {
-    [ReadOnly] public int width;
-    [ReadOnly] public int length;
-    [ReadOnly] public float talusAngle; // Threshold slope angle for erosion
-    [ReadOnly] public int iterations;  // Number of erosion steps
+    public int width;
+    public int length;
+    public float talusAngle;
+    public int iterations;
 
-    public NativeArray<float> heights;
+    [ReadOnly]
+    public NativeArray<float> inputHeights;
+
+    [WriteOnly]
+    public NativeArray<float> outputHeights;
 
     public void Execute(int index)
     {
-        for (int i = 0; i < iterations; i++)
+        int x = index % width;
+        int y = index / width;
+
+        // Copy input heights to output heights (double buffering)
+        outputHeights[index] = inputHeights[index];
+
+        // Skip boundary cells
+        if (x == 0 || x == width - 1 || y == 0 || y == length - 1)
+            return;
+
+        for (int iter = 0; iter < iterations; iter++)
         {
-            int x = index % width;
-            int y = index / width;
+            float currentHeight = inputHeights[index];
 
-            float currentHeight = heights[index];
-            float avgNeighborHeight = 0f;
-            int validNeighbors = 0;
-
-            // Iterate through neighbors
-            for (int dx = -1; dx <= 1; dx++)
+            // Process neighbors to simulate thermal erosion
+            float totalHeightChange = 0f;
+            for (int offsetY = -1; offsetY <= 1; offsetY++)
             {
-                for (int dy = -1; dy <= 1; dy++)
+                for (int offsetX = -1; offsetX <= 1; offsetX++)
                 {
-                    if (dx == 0 && dy == 0) continue; // Skip the current cell
+                    if (offsetX == 0 && offsetY == 0) continue;
 
-                    int nx = x + dx;
-                    int ny = y + dy;
+                    int neighborX = x + offsetX;
+                    int neighborY = y + offsetY;
+                    int neighborIndex = neighborY * width + neighborX;
 
-                    if (nx >= 0 && nx < width && ny >= 0 && ny < length)
+                    if (neighborIndex < 0 || neighborIndex >= inputHeights.Length) continue;
+
+                    float neighborHeight = inputHeights[neighborIndex];
+                    float heightDiff = currentHeight - neighborHeight;
+
+                    if (heightDiff > talusAngle)
                     {
-                        int neighborIndex = nx + ny * width;
-                        avgNeighborHeight += heights[neighborIndex];
-                        validNeighbors++;
+                        float heightChange = heightDiff / 2f;
+                        totalHeightChange -= heightChange;
+                        outputHeights[neighborIndex] += heightChange;
                     }
                 }
             }
 
-            if (validNeighbors > 0)
-            {
-                avgNeighborHeight /= validNeighbors;
-
-                // Erode if the slope exceeds the talus angle
-                float slope = currentHeight - avgNeighborHeight;
-                if (slope > talusAngle)
-                {
-                    float erosionAmount = slope * 0.5f; // Redistribute half the slope difference
-                    heights[index] -= erosionAmount;
-                    // Spread to neighbors (simplified approach)
-                    for (int dx = -1; dx <= 1; dx++)
-                    {
-                        for (int dy = -1; dy <= 1; dy++)
-                        {
-                            if (dx == 0 && dy == 0) continue;
-                            int nx = x + dx;
-                            int ny = y + dy;
-
-                            if (nx >= 0 && nx < width && ny >= 0 && ny < length)
-                            {
-                                int neighborIndex = nx + ny * width;
-                                heights[neighborIndex] += erosionAmount / validNeighbors;
-                            }
-                        }
-                    }
-                }
-            }
+            outputHeights[index] += totalHeightChange;
         }
     }
 }

@@ -1,5 +1,7 @@
+using Unity.Collections;
+using Unity.Jobs;
 using UnityEngine;
 public interface IFeatureModifier
 {
-    void ApplyFeature(float[,] heights, TerrainGenerationSettings settings, Vector2 location, float intensity, float size);
+    JobHandle ScheduleJob(NativeArray<float> heights, int width, int length, TerrainGenerationSettings settings, JobHandle dependency);
 }

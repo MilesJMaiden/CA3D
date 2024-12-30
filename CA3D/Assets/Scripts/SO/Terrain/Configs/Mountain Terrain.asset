@@ -10,45 +10,45 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 4dfd7167753e54d498f4f976b989ba22, type: 3}
-  m_Name: Desert Dunes
+  m_Name: Mountain Terrain
   m_EditorClassIdentifier: 
   usePerlinNoise: 1
-  perlinLayers: 2
-  perlinBaseScale: 2
-  perlinAmplitudeDecay: 0.4
-  perlinFrequencyGrowth: 3
-  perlinOffset: {x: 0, y: 0}
+  perlinLayers: 5
+  perlinBaseScale: 50
+  perlinAmplitudeDecay: 0.5
+  perlinFrequencyGrowth: 2
+  perlinOffset: {x: 0.2, y: 0.4}
   useFractalBrownianMotion: 1
-  fBmLayers: 2
-  fBmBaseScale: 3
-  fBmAmplitudeDecay: 0.6
-  fBmFrequencyGrowth: 2
-  fBmOffset: {x: 0, y: 0}
+  fBmLayers: 4
+  fBmBaseScale: 30
+  fBmAmplitudeDecay: 0.4
+  fBmFrequencyGrowth: 2.5
+  fBmOffset: {x: 0.1, y: 0.3}
   useMidPointDisplacement: 0
   displacementFactor: 0
   displacementDecayRate: 0
   randomSeed: 0
   useVoronoiBiomes: 1
   voronoiCellCount: 10
-  voronoiHeightRange: {x: 0.1, y: 1}
+  voronoiHeightRange: {x: 0.2, y: 0.8}
   voronoiFalloffCurve:
     serializedVersion: 2
     m_Curve:
     - serializedVersion: 3
       time: 0
       value: 0
-      inSlope: 1
-      outSlope: 1
-      tangentMode: 34
+      inSlope: 2
+      outSlope: 2
+      tangentMode: 0
       weightedMode: 0
       inWeight: 0
       outWeight: 0
     - serializedVersion: 3
       time: 1
       value: 1
-      inSlope: 1
-      outSlope: 1
-      tangentMode: 34
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
       weightedMode: 0
       inWeight: 0
       outWeight: 0
@@ -58,25 +58,27 @@ MonoBehaviour:
   voronoiDistributionMode: 0
   customVoronoiPoints: []
   textureMappings:
-  - terrainLayer: {fileID: 8574412962073106934, guid: 42f80b93d46647248a57751d9be92221, type: 2}
+  - terrainLayer: {fileID: 8574412962073106934, guid: a0e0246d9cb9f7942a0641f9781822cf, type: 2}
     minHeight: 0
-    maxHeight: 0.125
-  - terrainLayer: {fileID: 8574412962073106934, guid: 350cff24b308cb94fbcb0040ec708bc2, type: 2}
-    minHeight: 0.1
-    maxHeight: 0.225
-  - terrainLayer: {fileID: 8574412962073106934, guid: 65e4c298b4a506246b587631e47dd610, type: 2}
-    minHeight: 0.2
+    maxHeight: 0.3
+  - terrainLayer: {fileID: 8574412962073106934, guid: 42f80b93d46647248a57751d9be92221, type: 2}
+    minHeight: 0.3
+    maxHeight: 0.6
+  - terrainLayer: {fileID: 8574412962073106934, guid: 987ec3d578658214796a2a7ea4b8f615, type: 2}
+    minHeight: 0.6
     maxHeight: 1
   useLakes: 0
-  lakeHeight: 0.1
-  useRivers: 0
-  riverWidth: 5
-  riverIntensity: 0.5
+  lakeCenter: {x: 0.5, y: 0.5}
+  lakeRadius: 10
+  lakeWaterLevel: 0.3
+  useRivers: 1
+  riverHeight: 0.3
+  riverWidth: 7
   useTrails: 0
-  trailWidth: 3
-  trailIntensity: 0.3
-  trailResolution: 10
-  trailSmoothness: 0.5
-  trailRandomness: 0.1
+  trailStartPoint: {x: 0.2, y: 0.8}
   trailEndPoint: {x: 0.9, y: 0.9}
-  useTrailRandomness: 0
+  trailWidth: 3
+  trailRandomness: 0.1
+  useErosion: 1
+  talusAngle: 0.05
+  erosionIterations: 3
