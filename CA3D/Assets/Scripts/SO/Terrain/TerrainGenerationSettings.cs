@@ -79,7 +79,9 @@ public class TerrainGenerationSettings : ScriptableObject
 
     [Header("Lake Settings")]
     public bool useLakes;
-    public float lakeHeight;
+    public Vector2 lakeCenter = new Vector2(0.5f, 0.5f);
+    public float lakeRadius = 10f;
+    public float lakeWaterLevel = 0.3f;
 
     #endregion
 
@@ -87,8 +89,8 @@ public class TerrainGenerationSettings : ScriptableObject
 
     [Header("River Settings")]
     public bool useRivers;
-    public float riverWidth;
-    public float riverIntensity;
+    public float riverHeight = 0.1f;
+    public float riverWidth = 5f;
 
     #endregion
 
@@ -96,13 +98,17 @@ public class TerrainGenerationSettings : ScriptableObject
 
     [Header("Trail Settings")]
     public bool useTrails;
-    public float trailWidth = 1.0f;
-    public float trailIntensity = 0.5f;
-    public int trailResolution = 10;
-    [Range(0f, 1f)] public float trailSmoothness = 0.5f;
-    public float trailRandomness = 0.1f;
-    public Vector2 trailEndPoint = new Vector2(0.5f, 0.5f);
-    public bool useTrailRandomness = true;
+    public Vector2 trailStartPoint = new Vector2(0.2f, 0.8f);
+    public Vector2 trailEndPoint = new Vector2(0.8f, 0.2f);
+    public float trailWidth = 2f;
+    public float trailRandomness = 0.2f;
+
+
 
     #endregion
+
+    [Header("Erosion Settings")]
+    public bool useErosion;
+    public float talusAngle = 0.05f; // Slope threshold
+    public int erosionIterations = 3;
 }

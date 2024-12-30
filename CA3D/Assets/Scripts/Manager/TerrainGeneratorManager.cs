@@ -244,10 +244,15 @@ public class TerrainGeneratorManager : MonoBehaviour
             for (int y = 0; y < length; y++)
             {
                 float height = heights[x, y];
+                float slope = Mathf.Abs(terrainData.GetSteepness(x / (float)width, y / (float)length) / 90f);
+
                 for (int i = 0; i < layerCount; i++)
                 {
                     var mapping = settings.textureMappings[i];
-                    splatmap[x, y, i] = (height >= mapping.minHeight && height <= mapping.maxHeight) ? 1.0f : 0.0f;
+                    float heightBlend = Mathf.InverseLerp(mapping.minHeight, mapping.maxHeight, height);
+                    float slopeBlend = Mathf.InverseLerp(0f, 1f, slope);
+
+                    splatmap[x, y, i] = heightBlend * (1f - slopeBlend); // Combine height and slope influence
                 }
             }
         }

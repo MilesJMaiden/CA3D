@@ -7,13 +7,15 @@ public class TerrainGenerator : ITerrainGenerator
 {
     private readonly TerrainGenerationSettings settings;
     private readonly List<IHeightModifier> heightModifiers;
+    private readonly List<IFeatureModifier> featureModifiers;
 
-    public TerrainGenerator(TerrainGenerationSettings settings, List<IHeightModifier> heightModifiers = null)
+    public TerrainGenerator(TerrainGenerationSettings settings, List<IHeightModifier> heightModifiers = null, List<IFeatureModifier> featureModifiers = null)
     {
         this.settings = settings ?? throw new System.ArgumentNullException(nameof(settings));
         this.heightModifiers = heightModifiers ?? HeightModifierFactory.CreateModifiers(settings);
+        this.featureModifiers = featureModifiers ?? FeatureModifierFactory.CreateModifiers(settings);
 
-        Debug.Log($"TerrainGenerator initialized with {this.heightModifiers.Count} modifiers");
+        Debug.Log($"TerrainGenerator initialized with {this.heightModifiers.Count} height modifiers and {this.featureModifiers.Count} feature modifiers");
     }
 
     public float[,] GenerateHeights(int width, int length)
@@ -21,6 +23,7 @@ public class TerrainGenerator : ITerrainGenerator
         NativeArray<float> heightsNative = new NativeArray<float>(width * length, Allocator.TempJob);
         JobHandle dependency = default; // Start with no dependency
 
+        // Apply base height modifiers
         foreach (var modifier in heightModifiers)
         {
             switch (modifier)
@@ -39,6 +42,29 @@ public class TerrainGenerator : ITerrainGenerator
                     break;
                 default:
                     Debug.LogWarning($"Modifier {modifier.GetType()} does not support jobs.");
+                    break;
+            }
+        }
+
+        // Apply feature-specific modifiers
+        foreach (var feature in featureModifiers)
+        {
+            switch (feature)
+            {
+                case RiverModifier riverModifier when settings.useRivers:
+                    dependency = riverModifier.ScheduleJob(heightsNative, width, length, settings, dependency);
+                    break;
+                case TrailModifier trailModifier when settings.useTrails:
+                    dependency = trailModifier.ScheduleJob(heightsNative, width, length, settings, dependency);
+                    break;
+                case LakeModifier lakeModifier when settings.useLakes:
+                    dependency = lakeModifier.ScheduleJob(heightsNative, width, length, settings, dependency);
+                    break;
+                case ThermalErosionModifier erosionModifier when settings.useErosion:
+                    dependency = erosionModifier.ScheduleJob(heightsNative, width, length, settings, dependency);
+                    break;
+                default:
+                    Debug.LogWarning($"Feature {feature.GetType()} does not support jobs.");
                     break;
             }
         }
@@ -65,17 +91,6 @@ public class TerrainGenerator : ITerrainGenerator
         {
             modifier.ModifyHeight(heights, settings);
         }
-    }
-
-    private void ApplyFeatureModifiers(float[,] heights, int width, int length)
-    {
-        if (settings.useTrails)
-        {
-            Debug.Log("Applying Trail Modifier...");
-            var trailModifier = new TrailModifier();
-            trailModifier.ApplyFeature(heights, settings, new Vector2(0.2f, 0.3f), settings.trailIntensity, settings.trailWidth);
-        }
-        // Add more feature modifiers here if needed
     }
 
     private void NormalizeHeights(float[,] heights)

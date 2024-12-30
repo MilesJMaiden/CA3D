@@ -3,18 +3,17 @@ using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
 
-public class TrailModifier : IFeatureModifier
+public class LakeModifier : IFeatureModifier
 {
     public JobHandle ScheduleJob(NativeArray<float> heights, int width, int length, TerrainGenerationSettings settings, JobHandle dependency)
     {
-        var job = new TrailJob
+        var job = new LakeJob
         {
             width = width,
             length = length,
-            startPoint = new float2(settings.trailStartPoint.x * width, settings.trailStartPoint.y * length),
-            endPoint = new float2(settings.trailEndPoint.x * width, settings.trailEndPoint.y * length),
-            trailWidth = settings.trailWidth,
-            randomness = settings.trailRandomness,
+            center = new float2(settings.lakeCenter.x * width, settings.lakeCenter.y * length),
+            lakeRadius = settings.lakeRadius,
+            waterLevel = settings.lakeWaterLevel,
             heights = heights
         };
 

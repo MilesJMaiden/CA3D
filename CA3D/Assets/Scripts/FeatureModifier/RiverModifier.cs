@@ -1,20 +1,17 @@
 using Unity.Collections;
 using Unity.Jobs;
-using Unity.Mathematics;
 using UnityEngine;
 
-public class TrailModifier : IFeatureModifier
+public class RiverModifier : IFeatureModifier
 {
     public JobHandle ScheduleJob(NativeArray<float> heights, int width, int length, TerrainGenerationSettings settings, JobHandle dependency)
     {
-        var job = new TrailJob
+        var job = new RiverJob
         {
             width = width,
             length = length,
-            startPoint = new float2(settings.trailStartPoint.x * width, settings.trailStartPoint.y * length),
-            endPoint = new float2(settings.trailEndPoint.x * width, settings.trailEndPoint.y * length),
-            trailWidth = settings.trailWidth,
-            randomness = settings.trailRandomness,
+            startHeight = settings.riverHeight,
+            riverWidth = settings.riverWidth,
             heights = heights
         };
 

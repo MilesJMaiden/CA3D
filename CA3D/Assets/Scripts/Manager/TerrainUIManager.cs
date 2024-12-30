@@ -53,22 +53,32 @@ public class TerrainUIManager : MonoBehaviour
     public TMP_InputField customVoronoiPointsField;
     public Toggle useVoronoiBiomesToggle;
 
+    // Erosion
+    public Toggle useErosionToggle;
+    public TMP_InputField talusAngleField;
+    public TMP_InputField erosionIterationsField;
+
     // Rivers
     public Toggle useRiversToggle;
     public TMP_InputField riverWidthField;
-    public TMP_InputField riverIntensityField;
+    public TMP_InputField riverHeightField;
 
     // Trails
     public Toggle useTrailsToggle;
-    public TMP_InputField trailWidthField;
-    public TMP_InputField trailIntensityField;
-    public TMP_InputField trailResolutionField;
-
-    public TMP_InputField trailSmoothnessField;
-    public TMP_InputField trailRandomnessField;
+    public TMP_InputField trailStartPointXField;
+    public TMP_InputField trailStartPointYField;
     public TMP_InputField trailEndPointXField;
     public TMP_InputField trailEndPointYField;
-    public Toggle useTrailRandomnessToggle;
+    public TMP_InputField trailWidthField;
+    public TMP_InputField trailRandomnessField;
+
+    // Lakes
+    public Toggle useLakesToggle;
+    public TMP_InputField lakeCenterXField;
+    public TMP_InputField lakeCenterYField;
+    public TMP_InputField lakeRadiusField;
+    public TMP_InputField lakeWaterLevelField;
+
 
 
 
@@ -194,21 +204,32 @@ public class TerrainUIManager : MonoBehaviour
         voronoiDistributionModeDropdown.value = (int)config.voronoiDistributionMode;
         customVoronoiPointsField.text = string.Join(";", config.customVoronoiPoints.Select(p => $"{p.x},{p.y}"));
 
+        // Erosion
+        SetField(useErosionToggle, config.useErosion);
+        SetField(talusAngleField, config.talusAngle.ToString());
+        SetField(erosionIterationsField, config.erosionIterations.ToString());
+
         // Rivers
         SetField(useRiversToggle, config.useRivers);
         SetField(riverWidthField, config.riverWidth.ToString());
-        SetField(riverIntensityField, config.riverIntensity.ToString());
+        SetField(riverHeightField, config.riverHeight.ToString());
 
-        // Setting fields for trail settings from the configuration
+        // Trails
         SetField(useTrailsToggle, config.useTrails);
-        SetField(trailWidthField, config.trailWidth.ToString());
-        SetField(trailIntensityField, config.trailIntensity.ToString());
-        SetField(trailResolutionField, config.trailResolution.ToString());
-        SetField(trailSmoothnessField, config.trailSmoothness.ToString());
-        SetField(trailRandomnessField, config.trailRandomness.ToString());
+        SetField(trailStartPointXField, config.trailStartPoint.x.ToString());
+        SetField(trailStartPointYField, config.trailStartPoint.y.ToString());
         SetField(trailEndPointXField, config.trailEndPoint.x.ToString());
         SetField(trailEndPointYField, config.trailEndPoint.y.ToString());
-        SetField(useTrailRandomnessToggle, config.useTrailRandomness);
+        SetField(trailWidthField, config.trailWidth.ToString());
+        SetField(trailRandomnessField, config.trailRandomness.ToString());
+
+        // Lakes
+        SetField(useLakesToggle, config.useLakes);
+        SetField(lakeCenterXField, config.lakeCenter.x.ToString());
+        SetField(lakeCenterYField, config.lakeCenter.y.ToString());
+        SetField(lakeRadiusField, config.lakeRadius.ToString());
+        SetField(lakeWaterLevelField, config.lakeWaterLevel.ToString());
+
 
 
 
@@ -373,7 +394,27 @@ public class TerrainUIManager : MonoBehaviour
 
         #region Rivers
 
-        // Rivers
+        #endregion
+
+        //Erosion
+        AddFieldListener(useErosionToggle, value =>
+        {
+            currentSettings.useErosion = value;
+            ClearError();
+            RegenerateTerrain();
+        });
+
+        AddValidatedFieldListener(talusAngleField, value =>
+        {
+            currentSettings.talusAngle = float.Parse(value);
+        }, 0.01f, 0.2f);
+
+        AddValidatedFieldListener(erosionIterationsField, value =>
+        {
+            currentSettings.erosionIterations = int.Parse(value);
+        }, 1, 10);
+
+        //River
         AddFieldListener(useRiversToggle, value =>
         {
             currentSettings.useRivers = value;
@@ -383,147 +424,79 @@ public class TerrainUIManager : MonoBehaviour
 
         AddValidatedFieldListener(riverWidthField, value =>
         {
-            if (float.TryParse(value, out float result) && result >= 1f && result <= 20f)
-            {
-                currentSettings.riverWidth = result;
-                ClearError();
-                RegenerateTerrain();
-            }
-            else
-            {
-                DisplayError($"Invalid input for {riverWidthField.name}. Must be between 1 and 20.");
-                riverWidthField.text = "1"; // Reset to minimum valid value
-            }
+            currentSettings.riverWidth = float.Parse(value);
         }, 1f, 20f);
 
-        AddValidatedFieldListener(riverIntensityField, value =>
+        AddValidatedFieldListener(riverHeightField, value =>
         {
-            if (float.TryParse(value, out float result) && result >= 0f && result <= 1f)
-            {
-                currentSettings.riverIntensity = result;
-                ClearError();
-                RegenerateTerrain();
-            }
-            else
-            {
-                DisplayError($"Invalid input for {riverIntensityField.name}. Must be between 0 and 1.");
-                riverIntensityField.text = "0"; // Reset to minimum valid value
-            }
+            currentSettings.riverHeight = float.Parse(value);
         }, 0f, 1f);
 
-        #endregion
-
-
-        // Adding listeners for trail settings
-        AddValidatedFieldListener(trailWidthField, value =>
+        AddFieldListener(useTrailsToggle, value =>
         {
-            if (float.TryParse(value, out float result) && result >= 1f && result <= 50f)
-            {
-                currentSettings.trailWidth = result;
-                ClearError();
-                RegenerateTerrain();
-            }
-            else
-            {
-                DisplayError($"Invalid input for {trailWidthField.name}. Must be between 1 and 50.");
-                trailWidthField.text = "1"; // Reset to minimum valid value
-            }
-        }, 1f, 50f);
+            currentSettings.useTrails = value;
+            ClearError();
+            RegenerateTerrain();
+        });
 
-        AddValidatedFieldListener(trailIntensityField, value =>
+        AddInputFieldListener(trailStartPointXField, value =>
         {
-            if (float.TryParse(value, out float result) && result >= 0f && result <= 1f)
-            {
-                currentSettings.trailIntensity = result;
-                ClearError();
-                RegenerateTerrain();
-            }
-            else
-            {
-                DisplayError($"Invalid input for {trailIntensityField.name}. Must be between 0 and 1.");
-                trailIntensityField.text = "0"; // Reset to minimum valid value
-            }
-        }, 0f, 1f);
+            currentSettings.trailStartPoint = new Vector2(float.Parse(value), currentSettings.trailStartPoint.y);
+        });
 
-        AddValidatedFieldListener(trailResolutionField, value =>
+        AddInputFieldListener(trailStartPointYField, value =>
         {
-            if (int.TryParse(value, out int result) && result >= 1 && result <= 256)
-            {
-                currentSettings.trailResolution = result;
-                ClearError();
-                RegenerateTerrain();
-            }
-            else
-            {
-                DisplayError($"Invalid input for {trailResolutionField.name}. Must be between 1 and 256.");
-                trailResolutionField.text = "1"; // Reset to minimum valid value
-            }
-        }, 1, 256);
-
-        AddValidatedFieldListener(trailSmoothnessField, value =>
-        {
-            if (float.TryParse(value, out float result) && result >= 0f && result <= 1f)
-            {
-                currentSettings.trailSmoothness = Mathf.Clamp(result, 0f, 1f);
-                ClearError();
-                RegenerateTerrain();
-            }
-            else
-            {
-                DisplayError($"Invalid input for {trailSmoothnessField.name}. Must be between 0 and 1.");
-                trailSmoothnessField.text = "0"; // Reset to minimum valid value
-            }
-        }, 0f, 1f);
-
-        AddValidatedFieldListener(trailRandomnessField, value =>
-        {
-            if (float.TryParse(value, out float result) && result >= 0f && result <= 5f)
-            {
-                currentSettings.trailRandomness = result;
-                ClearError();
-                RegenerateTerrain();
-            }
-            else
-            {
-                DisplayError($"Invalid input for {trailRandomnessField.name}. Must be between 0 and 5.");
-                trailRandomnessField.text = "0"; // Reset to minimum valid value
-            }
-        }, 0f, 5f);
+            currentSettings.trailStartPoint = new Vector2(currentSettings.trailStartPoint.x, float.Parse(value));
+        });
 
         AddInputFieldListener(trailEndPointXField, value =>
         {
-            if (float.TryParse(value, out float endPointX))
-            {
-                currentSettings.trailEndPoint = new Vector2(endPointX, currentSettings.trailEndPoint.y);
-                ClearError();
-                RegenerateTerrain();
-            }
-            else
-            {
-                DisplayError($"Invalid input for {trailEndPointXField.name}.");
-            }
+            currentSettings.trailEndPoint = new Vector2(float.Parse(value), currentSettings.trailEndPoint.y);
         });
 
         AddInputFieldListener(trailEndPointYField, value =>
         {
-            if (float.TryParse(value, out float endPointY))
-            {
-                currentSettings.trailEndPoint = new Vector2(currentSettings.trailEndPoint.x, endPointY);
-                ClearError();
-                RegenerateTerrain();
-            }
-            else
-            {
-                DisplayError($"Invalid input for {trailEndPointYField.name}.");
-            }
+            currentSettings.trailEndPoint = new Vector2(currentSettings.trailEndPoint.x, float.Parse(value));
         });
 
-        AddFieldListener(useTrailRandomnessToggle, value =>
+        AddValidatedFieldListener(trailWidthField, value =>
         {
-            currentSettings.useTrailRandomness = value;
+            currentSettings.trailWidth = float.Parse(value);
+        }, 1f, 50f);
+
+        AddValidatedFieldListener(trailRandomnessField, value =>
+        {
+            currentSettings.trailRandomness = float.Parse(value);
+        }, 0f, 5f);
+
+        //Lakes
+        AddFieldListener(useLakesToggle, value =>
+        {
+            currentSettings.useLakes = value;
             ClearError();
             RegenerateTerrain();
         });
+
+        AddInputFieldListener(lakeCenterXField, value =>
+        {
+            currentSettings.lakeCenter = new Vector2(float.Parse(value), currentSettings.lakeCenter.y);
+        });
+
+        AddInputFieldListener(lakeCenterYField, value =>
+        {
+            currentSettings.lakeCenter = new Vector2(currentSettings.lakeCenter.x, float.Parse(value));
+        });
+
+        AddValidatedFieldListener(lakeRadiusField, value =>
+        {
+            currentSettings.lakeRadius = float.Parse(value);
+        }, 1f, 50f);
+
+        AddValidatedFieldListener(lakeWaterLevelField, value =>
+        {
+            currentSettings.lakeWaterLevel = float.Parse(value);
+        }, 0f, 1f);
+
 
         // Toggles
         AddFieldListener(usePerlinNoiseToggle, value =>
@@ -639,7 +612,7 @@ public class TerrainUIManager : MonoBehaviour
             // Reapply terrain layers after generation
             terrainGeneratorManager.ApplyTerrainLayers();
 
-            Debug.Log("Terrain regeneration completed successfully.");
+            //Debug.Log("Terrain regeneration completed successfully.");
             ClearError(); // Clear any previous error messages
         }
         catch (System.Exception ex)
@@ -715,20 +688,28 @@ public class TerrainUIManager : MonoBehaviour
         target.voronoiDistributionMode = source.voronoiDistributionMode;
         target.customVoronoiPoints = new List<Vector2>(source.customVoronoiPoints);
 
-        // River Settings
+        // Rivers
         target.useRivers = source.useRivers;
         target.riverWidth = source.riverWidth;
-        target.riverIntensity = source.riverIntensity;
+        target.riverHeight = source.riverHeight;
 
-        // Trail Settings
+        // Trails
         target.useTrails = source.useTrails;
+        target.trailStartPoint = source.trailStartPoint;
+        target.trailEndPoint = source.trailEndPoint;
         target.trailWidth = source.trailWidth;
-        target.trailIntensity = source.trailIntensity;
-        target.trailResolution = source.trailResolution;
+        target.trailRandomness = source.trailRandomness;
 
-        // Lake Settings
+        // Lakes
         target.useLakes = source.useLakes;
-        target.lakeHeight = source.lakeHeight;
+        target.lakeCenter = source.lakeCenter;
+        target.lakeRadius = source.lakeRadius;
+        target.lakeWaterLevel = source.lakeWaterLevel;
+
+        // Erosion
+        target.useErosion = source.useErosion;
+        target.talusAngle = source.talusAngle;
+        target.erosionIterations = source.erosionIterations;
 
         // Texture Mappings
         target.textureMappings = source.textureMappings?.ToArray();
