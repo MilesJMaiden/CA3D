@@ -1,114 +1,49 @@
-using System.Collections.Generic;
+using Unity.Collections;
+using Unity.Jobs;
+using Unity.Mathematics;
 using UnityEngine;
 
-/// <summary>
-/// A height modifier that applies Voronoi-based biome generation to a terrain heightmap.
-/// </summary>
 public class VoronoiBiomesModifier : IHeightModifier
 {
-    #region Public Methods
+    public JobHandle ScheduleJob(NativeArray<float> heights, int width, int length, TerrainGenerationSettings settings, JobHandle dependency)
+    {
+        // Preprocess the Voronoi falloff curve into a NativeArray
+        int sampleCount = 256; // Number of points to sample from the curve
+        NativeArray<float> falloffSamples = new NativeArray<float>(sampleCount, Allocator.TempJob);
 
-    /// <summary>
-    /// Modifies the terrain heights based on Voronoi biome generation.
-    /// </summary>
-    /// <param name="heights">The 2D array of terrain heights to modify.</param>
-    /// <param name="settings">The terrain generation settings used for Voronoi generation.</param>
+        for (int i = 0; i < sampleCount; i++)
+        {
+            float t = i / (float)(sampleCount - 1); // Normalize index to range [0, 1]
+            falloffSamples[i] = settings.voronoiFalloffCurve.Evaluate(t);
+        }
+
+        NativeArray<float2> points = new NativeArray<float2>(settings.customVoronoiPoints.Count, Allocator.TempJob);
+        for (int i = 0; i < settings.customVoronoiPoints.Count; i++)
+        {
+            points[i] = new float2(settings.customVoronoiPoints[i].x, settings.customVoronoiPoints[i].y);
+        }
+
+        var job = new VoronoiBiomeJob
+        {
+            width = width,
+            length = length,
+            points = points,
+            maxDistance = Mathf.Max(width, length),
+            heightRange = new float2(settings.voronoiHeightRange.x, settings.voronoiHeightRange.y),
+            falloffSamples = falloffSamples,
+            sampleCount = sampleCount,
+            heights = heights
+        };
+
+        JobHandle handle = job.Schedule(width * length, 64, dependency);
+        points.Dispose(handle);
+        falloffSamples.Dispose(handle);
+        return handle;
+    }
+
     public void ModifyHeight(float[,] heights, TerrainGenerationSettings settings)
     {
-        int width = heights.GetLength(0);
-        int length = heights.GetLength(1);
-
-        // Generate Voronoi points
-        List<Vector2> points = GenerateVoronoiPoints(settings, width, length);
-
-        float maxDistance = Mathf.Max(width, length);
-
-        for (int x = 0; x < width; x++)
-        {
-            for (int y = 0; y < length; y++)
-            {
-                float minDistSquared = float.MaxValue;
-                int closestPointIndex = -1;
-
-                Vector2 currentPoint = new Vector2(x, y);
-
-                // Find the closest Voronoi point
-                for (int i = 0; i < points.Count; i++)
-                {
-                    float distSquared = (points[i] - currentPoint).sqrMagnitude;
-                    if (distSquared < minDistSquared)
-                    {
-                        minDistSquared = distSquared;
-                        closestPointIndex = i;
-                    }
-                }
-
-                // Apply the influence of the closest Voronoi point
-                if (closestPointIndex != -1)
-                {
-                    float normalizedDistance = Mathf.Sqrt(minDistSquared) / maxDistance;
-                    float falloffValue = settings.voronoiFalloffCurve.Evaluate(1 - normalizedDistance);
-                    heights[x, y] += Mathf.Lerp(settings.voronoiHeightRange.x, settings.voronoiHeightRange.y, falloffValue);
-                }
-            }
-        }
+        // Legacy implementation for compatibility
+        Debug.LogWarning("ModifyHeight is deprecated when using ScheduleJob.");
     }
-
-    #endregion
-
-    #region Private Methods
-
-    /// <summary>
-    /// Generates Voronoi points based on the selected distribution mode.
-    /// </summary>
-    /// <param name="settings">The terrain generation settings.</param>
-    /// <param name="width">The width of the terrain.</param>
-    /// <param name="length">The length of the terrain.</param>
-    /// <returns>A list of Voronoi points.</returns>
-    private List<Vector2> GenerateVoronoiPoints(TerrainGenerationSettings settings, int width, int length)
-    {
-        HashSet<Vector2> points = new HashSet<Vector2>();
-
-        switch (settings.voronoiDistributionMode)
-        {
-            case TerrainGenerationSettings.DistributionMode.Random:
-                while (points.Count < settings.voronoiCellCount)
-                {
-                    Vector2 randomPoint = new Vector2(Random.Range(0, width), Random.Range(0, length));
-                    points.Add(randomPoint); // Avoid duplicates with HashSet
-                }
-                break;
-
-            case TerrainGenerationSettings.DistributionMode.Grid:
-                int gridSize = Mathf.CeilToInt(Mathf.Sqrt(settings.voronoiCellCount));
-                float cellWidth = (float)width / gridSize;
-                float cellHeight = (float)length / gridSize;
-
-                for (int x = 0; x < gridSize; x++)
-                {
-                    for (int y = 0; y < gridSize; y++)
-                    {
-                        if (points.Count >= settings.voronoiCellCount)
-                            break;
-
-                        float px = x * cellWidth + cellWidth / 2f;
-                        float py = y * cellHeight + cellHeight / 2f;
-                        points.Add(new Vector2(px, py));
-                    }
-                }
-                break;
-
-            case TerrainGenerationSettings.DistributionMode.Custom:
-                foreach (var point in settings.customVoronoiPoints)
-                {
-                    if (!points.Contains(point))
-                        points.Add(point);
-                }
-                break;
-        }
-
-        return new List<Vector2>(points);
-    }
-
-    #endregion
 }
