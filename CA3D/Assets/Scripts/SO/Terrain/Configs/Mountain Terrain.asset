@@ -28,6 +28,8 @@ MonoBehaviour:
   displacementFactor: 0
   displacementDecayRate: 0
   randomSeed: 0
+  roughness: 2
+  seed: 666
   useVoronoiBiomes: 1
   voronoiCellCount: 10
   voronoiHeightRange: {x: 0.2, y: 0.8}
@@ -57,15 +59,16 @@ MonoBehaviour:
     m_RotationOrder: 4
   voronoiDistributionMode: 0
   customVoronoiPoints: []
+  terrainLayers: []
   textureMappings:
   - terrainLayer: {fileID: 8574412962073106934, guid: a0e0246d9cb9f7942a0641f9781822cf, type: 2}
     minHeight: 0
     maxHeight: 0.3
   - terrainLayer: {fileID: 8574412962073106934, guid: 42f80b93d46647248a57751d9be92221, type: 2}
-    minHeight: 0.3
+    minHeight: 0.275
     maxHeight: 0.6
   - terrainLayer: {fileID: 8574412962073106934, guid: 987ec3d578658214796a2a7ea4b8f615, type: 2}
-    minHeight: 0.6
+    minHeight: 0.575
     maxHeight: 1
   useLakes: 0
   lakeCenter: {x: 0.5, y: 0.5}

@@ -11,7 +11,10 @@ public class TerrainGenerator : ITerrainGenerator
 
     public NativeArray<int> BiomeIndices { get; private set; }
 
-    public TerrainGenerator(TerrainGenerationSettings settings, List<IHeightModifier> heightModifiers = null, List<IFeatureModifier> featureModifiers = null)
+    public TerrainGenerator(
+        TerrainGenerationSettings settings,
+        List<IHeightModifier> heightModifiers = null,
+        List<IFeatureModifier> featureModifiers = null)
     {
         this.settings = settings ?? throw new System.ArgumentNullException(nameof(settings));
         this.heightModifiers = heightModifiers ?? HeightModifierFactory.CreateModifiers(settings);
@@ -37,14 +40,14 @@ public class TerrainGenerator : ITerrainGenerator
         float[,] heights = ConvertNativeArrayToManaged(heightsNative, width, length);
 
         heightsNative.Dispose();
-        NormalizeHeights(heights);
+        ClampAndNormalizeHeights(heights);
 
         return heights;
     }
 
     private JobHandle ApplyHeightModifiers(NativeArray<float> heightsNative, int width, int length, JobHandle dependency)
     {
-        NativeArray<int> biomeIndices = default; // Local variable for biome indices
+        NativeArray<int> biomeIndices = default;
 
         foreach (var modifier in heightModifiers)
         {
@@ -71,7 +74,6 @@ public class TerrainGenerator : ITerrainGenerator
         }
         return dependency;
     }
-
 
     private JobHandle ApplyFeatureModifiers(NativeArray<float> heightsNative, int width, int length, JobHandle dependency)
     {
@@ -112,11 +114,12 @@ public class TerrainGenerator : ITerrainGenerator
         return heights;
     }
 
-    private void NormalizeHeights(float[,] heights)
+    private void ClampAndNormalizeHeights(float[,] heights)
     {
         float minHeight = float.MaxValue;
         float maxHeight = float.MinValue;
 
+        // Determine min and max heights
         for (int x = 0; x < heights.GetLength(0); x++)
         {
             for (int y = 0; y < heights.GetLength(1); y++)
@@ -130,11 +133,12 @@ public class TerrainGenerator : ITerrainGenerator
         float range = maxHeight - minHeight;
         if (range > Mathf.Epsilon)
         {
+            // Normalize and clamp heights
             for (int x = 0; x < heights.GetLength(0); x++)
             {
                 for (int y = 0; y < heights.GetLength(1); y++)
                 {
-                    heights[x, y] = (heights[x, y] - minHeight) / range;
+                    heights[x, y] = Mathf.Clamp01((heights[x, y] - minHeight) / range);
                 }
             }
         }

@@ -21,7 +21,7 @@ public struct TrailJob : IJobParallelFor
         int y = index / width;
 
         float2 currentPoint = new float2(x, y);
-        float2 trailCenter = math.lerp(startPoint, endPoint, math.smoothstep(0f, 1f, y / (float)length));
+        float2 trailCenter = math.lerp(startPoint, endPoint, math.clamp(math.distance(startPoint, currentPoint) / math.distance(startPoint, endPoint), 0f, 1f));
 
         // Apply randomness
         trailCenter.x += math.sin(trailCenter.y * randomness) * trailWidth / 4;
@@ -30,7 +30,7 @@ public struct TrailJob : IJobParallelFor
         if (distanceToTrail < trailWidth)
         {
             float carveDepth = math.smoothstep(trailWidth, 0, distanceToTrail);
-            heights[index] -= carveDepth * 0.1f; // Carve a small trail
+            heights[index] = math.max(0, heights[index] - carveDepth * 0.1f);
         }
     }
 }
