@@ -39,6 +39,9 @@ public class TerrainGenerationSettings : ScriptableObject
     public float displacementDecayRate;
     public int randomSeed;
 
+    public float roughness;
+    public float seed;
+
     #endregion
 
     #region Voronoi Biomes Settings
@@ -50,6 +53,7 @@ public class TerrainGenerationSettings : ScriptableObject
     public AnimationCurve voronoiFalloffCurve = AnimationCurve.Linear(0, 1, 1, 0);
     public DistributionMode voronoiDistributionMode;
     public List<Vector2> customVoronoiPoints = new List<Vector2>();
+    public TerrainLayer[] terrainLayers; // Predefined Terrain Layers
 
     public enum DistributionMode
     {

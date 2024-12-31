@@ -520,8 +520,6 @@ public class TerrainUIManager : MonoBehaviour
         });
     }
 
-
-
     private void AddValidatedFieldListener(TMP_InputField field, System.Action<string> onChanged, float min, float max)
     {
         field.onEndEdit.AddListener(value =>
@@ -564,7 +562,6 @@ public class TerrainUIManager : MonoBehaviour
         });
     }
 
-
     private void AddFieldListener(Toggle toggle, System.Action<bool> onChanged)
     {
         toggle.onValueChanged.AddListener(value =>
@@ -585,41 +582,25 @@ public class TerrainUIManager : MonoBehaviour
     /// </summary>
     private void RegenerateTerrain()
     {
-        if (terrainGeneratorManager == null)
+        if (terrainGeneratorManager == null || currentSettings == null)
         {
-            DisplayError("TerrainGeneratorManager is not assigned! Please ensure it is properly set in the Inspector or initialized at runtime.");
-            Debug.LogError("TerrainGeneratorManager is null! Unable to regenerate terrain.");
+            DisplayError("TerrainGeneratorManager or current settings are not set!");
+            Debug.LogError("Cannot regenerate terrain: Missing references.");
             return;
         }
-
-        if (currentSettings == null)
-        {
-            DisplayError("TerrainGenerationSettings is null! Ensure a valid configuration is selected.");
-            Debug.LogError("Current TerrainGenerationSettings is null! Cannot regenerate terrain.");
-            return;
-        }
-
-        Debug.Log("Regenerating terrain with updated settings...");
 
         try
         {
-            // Apply the current settings to the manager
+            Debug.Log("Regenerating terrain...");
             terrainGeneratorManager.terrainSettings = currentSettings;
-
-            // Trigger the terrain generation process
             terrainGeneratorManager.GenerateTerrain();
-
-            // Reapply terrain layers after generation
-            terrainGeneratorManager.ApplyTerrainLayers();
-
-            //Debug.Log("Terrain regeneration completed successfully.");
-            ClearError(); // Clear any previous error messages
+            terrainGeneratorManager.ApplyTerrainLayers(); // Ensure layers are updated.
+            ClearError();
         }
         catch (System.Exception ex)
         {
-            // Log unexpected errors during the terrain regeneration process
-            DisplayError("An error occurred while regenerating terrain. Check the console for details.");
-            Debug.LogError($"Exception during terrain regeneration: {ex.Message}\n{ex.StackTrace}");
+            DisplayError($"Error during terrain regeneration: {ex.Message}");
+            Debug.LogError(ex);
         }
     }
 
@@ -714,8 +695,6 @@ public class TerrainUIManager : MonoBehaviour
         // Texture Mappings
         target.textureMappings = source.textureMappings?.ToArray();
     }
-
-
 
     #endregion
 }

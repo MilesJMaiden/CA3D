@@ -11,10 +11,11 @@ public struct VoronoiBiomeJob : IJobParallelFor
     [ReadOnly] public NativeArray<float2> points;
     [ReadOnly] public float maxDistance;
     [ReadOnly] public float2 heightRange;
-    [ReadOnly] public NativeArray<float> falloffSamples; // Sampled curve values
-    [ReadOnly] public int sampleCount; // Number of samples in the falloff curve
+    [ReadOnly] public NativeArray<float> falloffSamples;
+    [ReadOnly] public int sampleCount;
 
     public NativeArray<float> heights;
+    public NativeArray<int> biomeIndices; // Output biome indices for material layers
 
     public void Execute(int index)
     {
@@ -23,11 +24,17 @@ public struct VoronoiBiomeJob : IJobParallelFor
 
         float2 currentPoint = new float2(x, y);
 
+        // Find closest Voronoi point
         float minDistSquared = float.MaxValue;
-        foreach (float2 point in points)
+        int closestPointIndex = 0;
+        for (int i = 0; i < points.Length; i++)
         {
-            float distSquared = math.distancesq(currentPoint, point);
-            minDistSquared = math.min(minDistSquared, distSquared);
+            float distSquared = math.distancesq(currentPoint, points[i]);
+            if (distSquared < minDistSquared)
+            {
+                minDistSquared = distSquared;
+                closestPointIndex = i;
+            }
         }
 
         float normalizedDistance = math.sqrt(minDistSquared) / maxDistance;
@@ -37,6 +44,8 @@ public struct VoronoiBiomeJob : IJobParallelFor
         sampleIndex = math.clamp(sampleIndex, 0, sampleCount - 1);
         float falloffValue = falloffSamples[sampleIndex];
 
+        // Calculate height and assign biome index
         heights[index] += math.lerp(heightRange.x, heightRange.y, falloffValue);
+        biomeIndices[index] = closestPointIndex;
     }
 }

@@ -9,6 +9,8 @@ public class TerrainGenerator : ITerrainGenerator
     private readonly List<IHeightModifier> heightModifiers;
     private readonly List<IFeatureModifier> featureModifiers;
 
+    public NativeArray<int> BiomeIndices { get; private set; }
+
     public TerrainGenerator(TerrainGenerationSettings settings, List<IHeightModifier> heightModifiers = null, List<IFeatureModifier> featureModifiers = null)
     {
         this.settings = settings ?? throw new System.ArgumentNullException(nameof(settings));
@@ -21,9 +23,29 @@ public class TerrainGenerator : ITerrainGenerator
     public float[,] GenerateHeights(int width, int length)
     {
         NativeArray<float> heightsNative = new NativeArray<float>(width * length, Allocator.TempJob);
-        JobHandle dependency = default; // Start with no dependency
+        JobHandle dependency = default;
 
-        // Apply base height modifiers
+        // Apply height modifiers
+        dependency = ApplyHeightModifiers(heightsNative, width, length, dependency);
+
+        // Apply feature-specific modifiers
+        dependency = ApplyFeatureModifiers(heightsNative, width, length, dependency);
+
+        dependency.Complete();
+
+        // Convert to managed array
+        float[,] heights = ConvertNativeArrayToManaged(heightsNative, width, length);
+
+        heightsNative.Dispose();
+        NormalizeHeights(heights);
+
+        return heights;
+    }
+
+    private JobHandle ApplyHeightModifiers(NativeArray<float> heightsNative, int width, int length, JobHandle dependency)
+    {
+        NativeArray<int> biomeIndices = default; // Local variable for biome indices
+
         foreach (var modifier in heightModifiers)
         {
             switch (modifier)
@@ -38,15 +60,21 @@ public class TerrainGenerator : ITerrainGenerator
                     dependency = midpointModifier.ScheduleJob(heightsNative, width, length, settings, dependency);
                     break;
                 case VoronoiBiomesModifier voronoiModifier:
-                    dependency = voronoiModifier.ScheduleJob(heightsNative, width, length, settings, dependency);
+                    dependency = voronoiModifier.ScheduleJob(
+                        heightsNative, width, length, settings, dependency, out biomeIndices);
+                    BiomeIndices = biomeIndices;
                     break;
                 default:
                     Debug.LogWarning($"Modifier {modifier.GetType()} does not support jobs.");
                     break;
             }
         }
+        return dependency;
+    }
 
-        // Apply feature-specific modifiers
+
+    private JobHandle ApplyFeatureModifiers(NativeArray<float> heightsNative, int width, int length, JobHandle dependency)
+    {
         foreach (var feature in featureModifiers)
         {
             switch (feature)
@@ -68,10 +96,11 @@ public class TerrainGenerator : ITerrainGenerator
                     break;
             }
         }
+        return dependency;
+    }
 
-        dependency.Complete(); // Ensure all jobs complete before accessing the NativeArray
-
-        // Convert back to managed array
+    private float[,] ConvertNativeArrayToManaged(NativeArray<float> heightsNative, int width, int length)
+    {
         float[,] heights = new float[width, length];
         for (int x = 0; x < width; x++)
         {
@@ -80,17 +109,7 @@ public class TerrainGenerator : ITerrainGenerator
                 heights[x, y] = heightsNative[x + y * width];
             }
         }
-
-        heightsNative.Dispose();
         return heights;
-    }
-
-    private void ApplyBaseHeightModifiers(float[,] heights)
-    {
-        foreach (var modifier in heightModifiers)
-        {
-            modifier.ModifyHeight(heights, settings);
-        }
     }
 
     private void NormalizeHeights(float[,] heights)

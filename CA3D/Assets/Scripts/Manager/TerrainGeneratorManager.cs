@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Unity.Collections;
 using UnityEngine;
 
 /// <summary>
@@ -74,28 +75,12 @@ public class TerrainGeneratorManager : MonoBehaviour
     /// </summary>
     public void GenerateTerrain()
     {
-        if (terrainSettings == null)
-        {
-            Debug.LogError("Terrain settings not assigned!");
-            return;
-        }
-
         ValidateAndAdjustDimensions();
         InitializeGenerator();
-
-        int alphamapResolution = m_TerrainData.alphamapResolution;
-
-        if (width != alphamapResolution || length != alphamapResolution)
-        {
-            Debug.LogWarning($"Adjusting width and length to match alphamapResolution: {alphamapResolution}");
-            width = alphamapResolution;
-            length = alphamapResolution;
-        }
 
         m_TerrainData.heightmapResolution = width + 1;
         m_TerrainData.size = new Vector3(width, height, length);
 
-        // Synchronize terrain layers before generating terrain
         SyncTerrainLayersWithMappings();
 
         float[,] heights = terrainGenerator.GenerateHeights(width, length);
@@ -104,14 +89,16 @@ public class TerrainGeneratorManager : MonoBehaviour
         {
             m_TerrainData.SetHeights(0, 0, heights);
 
-            if (terrainSettings.textureMappings == null || terrainSettings.textureMappings.Length == 0)
+            // Apply textures with biomes
+            if (terrainGenerator is TerrainGenerator generator && generator.BiomeIndices.IsCreated)
             {
-                Debug.LogWarning("Texture mappings in the ScriptableObject are empty. Falling back to default texture mappings.");
-                AssignDefaultTextures();
-                SyncTerrainLayersWithMappings(); // Ensure layers match the new default mappings
+                ApplyTexturesWithBiomes(heights, generator.BiomeIndices, terrainSettings, width, length, m_TerrainData);
+                generator.BiomeIndices.Dispose(); // Cleanup
             }
-
-            ApplyTextures(heights, terrainSettings, width, length, m_TerrainData);
+            else
+            {
+                ApplyTextures(heights, terrainSettings, width, length, m_TerrainData);
+            }
         }
         else
         {
@@ -416,6 +403,59 @@ public class TerrainGeneratorManager : MonoBehaviour
         m_TerrainData.terrainLayers = layers.ToArray();
         Debug.Log($"Synchronized terrain layers. Total layers: {m_TerrainData.terrainLayers.Length}");
     }
+
+    private void ApplyTexturesWithBiomes(float[,] heights, NativeArray<int> biomeIndices, TerrainGenerationSettings settings, int width, int length, TerrainData terrainData)
+    {
+        TerrainLayer[] layers = terrainData.terrainLayers;
+
+        if (layers == null || layers.Length == 0)
+        {
+            Debug.LogError("No terrain layers assigned. Cannot apply textures.");
+            return;
+        }
+
+        if (settings.textureMappings == null || settings.textureMappings.Length != layers.Length)
+        {
+            Debug.LogWarning($"Mismatch between terrain layers ({layers.Length}) and texture mappings ({settings.textureMappings?.Length ?? 0}). Synchronizing layers...");
+            SyncTerrainLayersWithMappings();
+            layers = terrainData.terrainLayers; // Refresh layers after synchronization
+        }
+
+        int layerCount = layers.Length;
+        float[,,] splatmap = new float[width, length, layerCount];
+
+        for (int x = 0; x < width; x++)
+        {
+            for (int y = 0; y < length; y++)
+            {
+                float height = heights[x, y];
+                float slope = Mathf.Abs(terrainData.GetSteepness(x / (float)width, y / (float)length) / 90f);
+                int biomeIndex = biomeIndices[x + y * width];
+
+                for (int i = 0; i < layerCount; i++)
+                {
+                    var mapping = settings.textureMappings[i];
+
+                    // Height-based blending
+                    float heightBlend = Mathf.InverseLerp(mapping.minHeight, mapping.maxHeight, height);
+
+                    // Slope influence
+                    float slopeBlend = Mathf.InverseLerp(0f, 1f, slope);
+
+                    // Biome-based blending
+                    float biomeBlend = (i == biomeIndex) ? 1f : 0.2f; // Stronger weight for matching biome
+
+                    // Final weight calculation
+                    splatmap[x, y, i] = heightBlend * (1f - slopeBlend) * biomeBlend;
+                }
+            }
+        }
+
+        NormalizeSplatmap(splatmap);
+        terrainData.SetAlphamaps(0, 0, splatmap);
+        Debug.Log("Textures successfully applied with biomes and height blending.");
+    }
+
 
 
     #endregion
