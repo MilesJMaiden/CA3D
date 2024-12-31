@@ -428,6 +428,7 @@ public class TerrainUIManager : MonoBehaviour
 
     /// <summary>
     /// Adds listeners to all UI input fields and toggles to dynamically update terrain settings.
+    /// Ensures terrain regeneration on any toggle change.
     /// </summary>
     private void AddListeners()
     {
@@ -443,8 +444,19 @@ public class TerrainUIManager : MonoBehaviour
         AddTrailListeners();
         AddLakeListeners();
 
-        Debug.Log("Listeners successfully added.");
+        // Add listeners for all toggles to ensure terrain updates
+        AddFieldListener(usePerlinNoiseToggle, value => currentSettings.usePerlinNoise = value);
+        AddFieldListener(useFractalBrownianMotionToggle, value => currentSettings.useFractalBrownianMotion = value);
+        AddFieldListener(useMidPointDisplacementToggle, value => currentSettings.useMidPointDisplacement = value);
+        AddFieldListener(useVoronoiBiomesToggle, value => currentSettings.useVoronoiBiomes = value);
+        AddFieldListener(useErosionToggle, value => currentSettings.useErosion = value);
+        AddFieldListener(useRiversToggle, value => currentSettings.useRivers = value);
+        AddFieldListener(useTrailsToggle, value => currentSettings.useTrails = value);
+        AddFieldListener(useLakesToggle, value => currentSettings.useLakes = value);
+
+        Debug.Log("Listeners successfully added to all UI components.");
     }
+
 
     /// <summary>
     /// Adds listeners for Perlin Noise UI fields.
@@ -827,7 +839,7 @@ public class TerrainUIManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Adds a listener to a Toggle to handle value changes.
+    /// Adds a listener to a Toggle to handle value changes and regenerate terrain.
     /// </summary>
     /// <param name="toggle">The Toggle to listen to.</param>
     /// <param name="onChanged">Action to execute when the value changes.</param>
@@ -843,14 +855,27 @@ public class TerrainUIManager : MonoBehaviour
         {
             try
             {
+                // Update the setting associated with the toggle
                 onChanged?.Invoke(value);
+
+                // Ensure the terrain settings are synchronized and regenerate the terrain
+                if (terrainGeneratorManager != null && currentSettings != null)
+                {
+                    terrainGeneratorManager.terrainSettings = currentSettings;
+                    RegenerateTerrain();
+                    Debug.Log($"Terrain updated after toggling '{toggle.name}' to: {value}");
+                }
+                else
+                {
+                    Debug.LogError("TerrainGeneratorManager or currentSettings is null. Cannot update terrain.");
+                }
+
                 ClearError();
-                RegenerateTerrain();
-                Debug.Log($"Toggle '{toggle.name}' updated to: {value}");
             }
             catch (System.Exception ex)
             {
-                DisplayError($"Error updating Toggle '{toggle.name}': {ex.Message}");
+                string errorMsg = $"Error updating Toggle '{toggle.name}': {ex.Message}";
+                DisplayError(errorMsg);
                 Debug.LogError(ex);
             }
         });

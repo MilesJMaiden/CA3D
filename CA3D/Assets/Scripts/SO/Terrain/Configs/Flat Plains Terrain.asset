@@ -59,7 +59,7 @@ MonoBehaviour:
     m_RotationOrder: 4
   voronoiDistributionMode: 1
   customVoronoiPoints: []
-  terrainLayers: []
+  voronoiBlendFactor: 0.5
   textureMappings:
   - terrainLayer: {fileID: 8574412962073106934, guid: a0e0246d9cb9f7942a0641f9781822cf, type: 2}
     minHeight: 0
@@ -75,13 +75,13 @@ MonoBehaviour:
   lakeRadius: 10
   lakeWaterLevel: 0.2
   useRivers: 0
-  riverHeight: 0
-  riverWidth: 0
+  riverHeight: 1
+  riverWidth: 1
   useTrails: 0
   trailStartPoint: {x: 0.2, y: 0.8}
   trailEndPoint: {x: 0.9, y: 0.9}
   trailWidth: 3
   trailRandomness: 0.1
   useErosion: 0
-  talusAngle: 0.05
+  talusAngle: 0.1
   erosionIterations: 3
