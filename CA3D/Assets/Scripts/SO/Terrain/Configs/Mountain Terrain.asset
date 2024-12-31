@@ -27,9 +27,9 @@ MonoBehaviour:
   useMidPointDisplacement: 0
   displacementFactor: 0
   displacementDecayRate: 0
-  randomSeed: 0
+  randomSeed: 1234
   roughness: 2
-  seed: 666
+  seed: 1234
   useVoronoiBiomes: 1
   voronoiCellCount: 10
   voronoiHeightRange: {x: 0.2, y: 0.8}
@@ -85,3 +85,6 @@ MonoBehaviour:
   useErosion: 1
   talusAngle: 0.1
   erosionIterations: 3
+  useFeatures: 0
+  featureDefinitions: []
+  globalSpawnProbability: 0.5
