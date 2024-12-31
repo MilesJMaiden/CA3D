@@ -79,6 +79,12 @@ public class TerrainUIManager : MonoBehaviour
     public TMP_InputField lakeRadiusField;
     public TMP_InputField lakeWaterLevelField;
 
+    // Feature Placement
+    [Header("Feature Placement")]
+    public Toggle useFeaturesToggle;
+    public TMP_InputField globalSpawnProbabilityField;
+    public TMP_Dropdown featureDefinitionsDropdown;
+
     public TMP_Text errorMessage;
 
     [Header("Terrain Generator Reference")]
@@ -170,6 +176,38 @@ public class TerrainUIManager : MonoBehaviour
         voronoiDistributionModeDropdown.RefreshShownValue();
 
         Debug.Log("Voronoi distribution mode dropdown successfully populated.");
+    }
+
+    private void PopulateFeatureDefinitionsDropdown()
+    {
+        if (featureDefinitionsDropdown == null)
+        {
+            Debug.LogError("FeatureDefinitionsDropdown reference is missing.");
+            return;
+        }
+
+        var featureNames = currentSettings.featureDefinitions?.Select(f => f.name).ToList() ?? new List<string>();
+        if (featureNames.Count == 0)
+        {
+            featureNames.Add("No Features Available");
+        }
+
+        featureDefinitionsDropdown.ClearOptions();
+        featureDefinitionsDropdown.AddOptions(featureNames);
+        featureDefinitionsDropdown.RefreshShownValue();
+    }
+
+    private void UpdateFeatureSettings()
+    {
+        if (useFeaturesToggle != null)
+        {
+            currentSettings.useFeatures = useFeaturesToggle.isOn;
+        }
+
+        if (float.TryParse(globalSpawnProbabilityField?.text, out float spawnProbability))
+        {
+            currentSettings.globalSpawnProbability = Mathf.Clamp(spawnProbability, 0f, 1f);
+        }
     }
 
     /// <summary>
@@ -454,6 +492,21 @@ public class TerrainUIManager : MonoBehaviour
         AddFieldListener(useTrailsToggle, value => currentSettings.useTrails = value);
         AddFieldListener(useLakesToggle, value => currentSettings.useLakes = value);
 
+        AddFieldListener(useFeaturesToggle, value =>
+        {
+            currentSettings.useFeatures = value;
+            RegenerateTerrain();
+        });
+
+        AddValidatedFieldListener(globalSpawnProbabilityField, value =>
+        {
+            if (float.TryParse(value, out float probability))
+            {
+                currentSettings.globalSpawnProbability = Mathf.Clamp(probability, 0f, 1f);
+                RegenerateTerrain();
+            }
+        }, 0f, 1f);
+    
         Debug.Log("Listeners successfully added to all UI components.");
     }
 

@@ -3,7 +3,7 @@ using UnityEngine;
 
 [CreateAssetMenu(menuName = "Terrain/GenerationSettings")]
 /// <summary>
-/// Represents settings for terrain generation, including noise, displacement, biomes, lakes, rivers, and trails.
+/// Represents settings for terrain generation, including noise, displacement, biomes, lakes, rivers, trails, and features.
 /// </summary>
 public class TerrainGenerationSettings : ScriptableObject
 {
@@ -159,4 +159,15 @@ public class TerrainGenerationSettings : ScriptableObject
 
     [Tooltip("Number of erosion iterations.")]
     public int erosionIterations = 3;
+
+    [Header("Feature Settings")]
+    [Tooltip("Enable or disable feature placement.")]
+    public bool useFeatures;
+
+    [Tooltip("Feature definitions used for placement on the terrain.")]
+    public FeatureDefinition[] featureDefinitions;
+
+    [Tooltip("Global multiplier for feature spawn probability.")]
+    [Range(0f, 1f)]
+    public float globalSpawnProbability = 0.5f;
 }
