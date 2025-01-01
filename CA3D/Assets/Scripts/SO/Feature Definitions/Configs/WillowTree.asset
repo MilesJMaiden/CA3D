@@ -13,6 +13,6 @@ MonoBehaviour:
   m_Name: WillowTree
   m_EditorClassIdentifier: 
   prefab: {fileID: 0}
-  heightRange: {x: 0.1, y: 0.5}
-  slopeRange: {x: 0, y: 20}
-  spawnProbability: 0.7
+  heightRange: {x: 0, y: 0.4}
+  slopeRange: {x: 0, y: 15}
+  spawnProbability: 0.5
