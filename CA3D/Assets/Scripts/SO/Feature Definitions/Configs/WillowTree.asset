@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e00f9604228d1814ebf09e094749c042, type: 3}
   m_Name: WillowTree
   m_EditorClassIdentifier: 
-  prefab: {fileID: 0}
+  prefab: {fileID: 8765735025673656232, guid: baf719ec98439ec46bfda3e55e7a9fcb, type: 3}
   heightRange: {x: 0, y: 0.4}
   slopeRange: {x: 0, y: 15}
   spawnProbability: 0.5

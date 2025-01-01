@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e00f9604228d1814ebf09e094749c042, type: 3}
   m_Name: GrassPatch
   m_EditorClassIdentifier: 
-  prefab: {fileID: 0}
+  prefab: {fileID: 3437744573883228557, guid: 5837c399842618b4c8aedf11330d4dbd, type: 3}
   heightRange: {x: 0, y: 0.4}
   slopeRange: {x: 0, y: 20}
   spawnProbability: 0.8

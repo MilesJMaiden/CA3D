@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e00f9604228d1814ebf09e094749c042, type: 3}
   m_Name: LargeRock
   m_EditorClassIdentifier: 
-  prefab: {fileID: 0}
+  prefab: {fileID: 4739697210285729972, guid: fcb669af7400a3e4881bb1d83f92ac8c, type: 3}
   heightRange: {x: 0.5, y: 0.8}
   slopeRange: {x: 20, y: 60}
   spawnProbability: 0.3

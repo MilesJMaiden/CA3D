@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e00f9604228d1814ebf09e094749c042, type: 3}
   m_Name: MediumRock
   m_EditorClassIdentifier: 
-  prefab: {fileID: 0}
+  prefab: {fileID: 5251798959227507829, guid: fb397a31c260d4c49976a1f5d5242e95, type: 3}
   heightRange: {x: 0.3, y: 0.6}
   slopeRange: {x: 0, y: 40}
   spawnProbability: 0.5

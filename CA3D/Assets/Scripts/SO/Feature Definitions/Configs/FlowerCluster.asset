@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e00f9604228d1814ebf09e094749c042, type: 3}
   m_Name: FlowerCluster
   m_EditorClassIdentifier: 
-  prefab: {fileID: 0}
+  prefab: {fileID: 729107427309227936, guid: dbea9cbe68324e1439f2ab463b01d267, type: 3}
   heightRange: {x: 0.2, y: 0.5}
   slopeRange: {x: 0, y: 15}
   spawnProbability: 0.7

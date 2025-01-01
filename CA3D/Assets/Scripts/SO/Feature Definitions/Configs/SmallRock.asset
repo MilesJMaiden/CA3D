@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e00f9604228d1814ebf09e094749c042, type: 3}
   m_Name: SmallRock
   m_EditorClassIdentifier: 
-  prefab: {fileID: 0}
+  prefab: {fileID: 2921791183705386611, guid: ecad611320477cc4ca349cf8fb423e2d, type: 3}
   heightRange: {x: 0.1, y: 0.3}
   slopeRange: {x: 0, y: 30}
   spawnProbability: 0.6
