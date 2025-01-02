@@ -30,11 +30,7 @@ public struct FeaturePlacementJob : IJobParallelFor
             slope >= slopeRange.x && slope <= slopeRange.y &&
             random.NextFloat(0f, 1f) <= spawnProbability)
         {
-            // Check biome condition if applicable
-            if (biomeIndex == -1 || BiomeMatches(index))
-            {
-                placementMap[index] = 1; // Mark as valid placement
-            }
+            placementMap[index] = 1; // Mark as valid placement
         }
     }
 
@@ -52,11 +48,5 @@ public struct FeaturePlacementJob : IJobParallelFor
         float dy = heightMap[x + bottom * terrainSize.x] - heightMap[x + top * terrainSize.x];
 
         return math.sqrt(dx * dx + dy * dy) * 100f; // Approximate slope in degrees
-    }
-
-    private bool BiomeMatches(int index)
-    {
-        // Implement biome matching logic
-        return true; // Placeholder
     }
 }

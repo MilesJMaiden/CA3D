@@ -29141,6 +29141,7 @@ GameObject:
   - component: {fileID: 1719529065}
   - component: {fileID: 1719529064}
   - component: {fileID: 1719529068}
+  - component: {fileID: 1719529069}
   m_Layer: 0
   m_Name: Terrain
   m_TagString: Untagged
@@ -29240,6 +29241,29 @@ MonoBehaviour:
   height: 50
   terrainSettings: {fileID: 11400000, guid: 0ddff04a997a78549a079ae3ab6c822d, type: 2}
   uiManager: {fileID: 1964166518}
+--- !u!114 &1719529069
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1719529063}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 009e9d4f861841048bb081c1015d9733, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  featureSettings:
+  - {fileID: 11400000, guid: b66a0285c310c8c42858d3ac2f67d460, type: 2}
+  - {fileID: 11400000, guid: b53e939879698454694d596325500df3, type: 2}
+  - {fileID: 11400000, guid: 7ad4842930ae81346af964902f9a34e2, type: 2}
+  - {fileID: 11400000, guid: 359534ea76b5b4548a87f69bdf200cc7, type: 2}
+  - {fileID: 11400000, guid: 222483207b1381740bc12a7a58136c96, type: 2}
+  - {fileID: 11400000, guid: f2c6bba6e22fffe45ab9aae6d1b2f82f, type: 2}
+  - {fileID: 11400000, guid: bbceeec3680325042812fd9dcc5dd00c, type: 2}
+  - {fileID: 11400000, guid: 9aa5cf6c4fb3b024b8003d514377a293, type: 2}
+  - {fileID: 11400000, guid: 2ddd9adf85f640d4482aabb1fac22889, type: 2}
+  terrain: {fileID: 1719529065}
 --- !u!1 &1725024539
 GameObject:
   m_ObjectHideFlags: 0

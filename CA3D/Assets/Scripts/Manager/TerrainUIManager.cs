@@ -231,13 +231,9 @@ public class TerrainUIManager : MonoBehaviour
 
         // Update the feature UI for the first feature in the list
         if (currentSettings.featureSettings != null && currentSettings.featureSettings.Count > 0)
-        {
             UpdateFeatureUI(currentSettings.featureSettings[0]);
-        }
         else
-        {
             ClearFeatureUI();
-        }
 
         Debug.Log($"Terrain configuration updated: {availableConfigs[index].name}");
     }
@@ -608,6 +604,8 @@ public class TerrainUIManager : MonoBehaviour
                 currentSettings.featureSettings[featureDefinitionsDropdown.value].heightRange = new Vector2(currentSettings.featureSettings[featureDefinitionsDropdown.value].heightRange.x, maxHeight);
             }
         }, 0f, 1f);
+
+        featureDefinitionsDropdown.onValueChanged.AddListener(OnFeatureDropdownChanged);
 
         Debug.Log("Listeners successfully added to all UI components.");
     }

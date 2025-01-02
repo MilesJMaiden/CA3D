@@ -93,11 +93,18 @@ public class TerrainGeneratorManager : MonoBehaviour
             if (terrainGenerator is TerrainGenerator generator && generator.BiomeIndices.IsCreated)
             {
                 ApplyTexturesWithBiomes(heights, generator.BiomeIndices, terrainSettings, width, length, m_TerrainData);
-                generator.BiomeIndices.Dispose(); // Cleanup
+                generator.BiomeIndices.Dispose();
             }
             else
             {
                 ApplyTextures(heights, terrainSettings, width, length, m_TerrainData);
+            }
+
+            // Notify FeatureManager to re-place features
+            FeatureManager featureManager = GetComponent<FeatureManager>();
+            if (featureManager != null)
+            {
+                featureManager.PlaceFeatures();
             }
         }
         else
@@ -105,6 +112,7 @@ public class TerrainGeneratorManager : MonoBehaviour
             Debug.LogError("Heights array is null. Terrain generation aborted.");
         }
     }
+
 
     private void AssignDefaultTextures()
     {
