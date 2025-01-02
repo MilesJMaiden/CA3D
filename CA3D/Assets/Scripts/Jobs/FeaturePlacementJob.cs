@@ -2,40 +2,61 @@ using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
+using UnityEngine;
 
 [BurstCompile]
 public struct FeaturePlacementJob : IJobParallelFor
 {
     [ReadOnly] public NativeArray<float> heightMap;
-    [ReadOnly] public NativeArray<float> featureData;
-    [WriteOnly] public NativeArray<int> layerMap;
-    [ReadOnly] public int2 terrainSize;
+    public NativeArray<int> placementMap;
+    public int2 terrainSize;
+
+    [ReadOnly] public Vector2 heightRange;
+    [ReadOnly] public Vector2 slopeRange;
+    [ReadOnly] public float spawnProbability;
+    [ReadOnly] public int biomeIndex; // -1 means no biome restriction
+
     public Unity.Mathematics.Random random;
 
     public void Execute(int index)
     {
         int x = index % terrainSize.x;
-        int z = index / terrainSize.x;
+        int y = index / terrainSize.x;
 
-        float height = heightMap[index];
-        int selectedFeature = -1;
+        float currentHeight = heightMap[index];
+        float slope = CalculateSlope(index);
 
-        for (int i = 0; i < featureData.Length / 3; i++)
+        if (currentHeight >= heightRange.x && currentHeight <= heightRange.y &&
+            slope >= slopeRange.x && slope <= slopeRange.y &&
+            random.NextFloat(0f, 1f) <= spawnProbability)
         {
-            float minHeight = featureData[i * 3];
-            float maxHeight = featureData[i * 3 + 1];
-            float probability = featureData[i * 3 + 2];
-
-            if (height >= minHeight && height <= maxHeight)
+            // Check biome condition if applicable
+            if (biomeIndex == -1 || BiomeMatches(index))
             {
-                if (random.NextFloat() <= probability)
-                {
-                    selectedFeature = i;
-                    break;
-                }
+                placementMap[index] = 1; // Mark as valid placement
             }
         }
+    }
 
-        layerMap[index] = selectedFeature;
+    private float CalculateSlope(int index)
+    {
+        int x = index % terrainSize.x;
+        int y = index / terrainSize.x;
+
+        int left = math.max(0, x - 1);
+        int right = math.min(terrainSize.x - 1, x + 1);
+        int top = math.max(0, y - 1);
+        int bottom = math.min(terrainSize.y - 1, y + 1);
+
+        float dx = heightMap[right + y * terrainSize.x] - heightMap[left + y * terrainSize.x];
+        float dy = heightMap[x + bottom * terrainSize.x] - heightMap[x + top * terrainSize.x];
+
+        return math.sqrt(dx * dx + dy * dy) * 100f; // Approximate slope in degrees
+    }
+
+    private bool BiomeMatches(int index)
+    {
+        // Implement biome matching logic
+        return true; // Placeholder
     }
 }

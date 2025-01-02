@@ -12,7 +12,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e00f9604228d1814ebf09e094749c042, type: 3}
   m_Name: PineTree
   m_EditorClassIdentifier: 
+  featureName: Pine Tree
+  enabled: 1
   prefab: {fileID: 2954972742162165618, guid: 50da460def4ce4e459f7dc9f0f987828, type: 3}
-  heightRange: {x: 0.3, y: 0.7}
-  slopeRange: {x: 0, y: 25}
-  spawnProbability: 0.6
+  heightRange: {x: 0.4, y: 1}
+  slopeRange: {x: 0, y: 30}
+  spawnProbability: 0.4
+  requiresBiome: 1
+  biomeIndex: 2
+  scaleRange: {x: 2, y: 4}
+  rotationRange: {x: 0, y: 360}

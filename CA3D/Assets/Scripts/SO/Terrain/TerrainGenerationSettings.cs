@@ -161,13 +161,13 @@ public class TerrainGenerationSettings : ScriptableObject
     public int erosionIterations = 3;
 
     [Header("Feature Settings")]
-    [Tooltip("Enable or disable feature placement.")]
+    [Tooltip("Enable feature placement on the terrain.")]
     public bool useFeatures;
 
-    [Tooltip("Feature definitions used for placement on the terrain.")]
-    public FeatureDefinition[] featureDefinitions;
-
-    [Tooltip("Global multiplier for feature spawn probability.")]
+    [Tooltip("Global spawn probability for features.")]
     [Range(0f, 1f)]
     public float globalSpawnProbability = 0.5f;
+
+    [Tooltip("Feature definitions for terrain.")]
+    public List<FeatureSettings> featureSettings;
 }

@@ -80,9 +80,11 @@ public class TerrainUIManager : MonoBehaviour
     public TMP_InputField lakeWaterLevelField;
 
     // Feature Placement
-    [Header("Feature Placement")]
-    public Toggle useFeaturesToggle;
-    public TMP_InputField globalSpawnProbabilityField;
+    [Header("Feature Settings")]
+    public Toggle enableFeatureToggle; // Toggle for enabling/disabling features
+    public TMP_InputField featureSpawnProbabilityField; // InputField for feature spawn probability
+    public TMP_InputField featureHeightRangeMinField; // InputField for minimum height range
+    public TMP_InputField featureHeightRangeMaxField; // InputField for maximum height range
     public TMP_Dropdown featureDefinitionsDropdown;
 
     public TMP_Text errorMessage;
@@ -102,12 +104,12 @@ public class TerrainUIManager : MonoBehaviour
     #endregion
 
     #region Unity Methods
-
     private void Start()
     {
         PopulateConfigDropdown();
         LoadDefaultValues();
         PopulateVoronoiDistributionDropdown();
+        PopulateFeatureDefinitionsDropdown();
         AddListeners();
     }
 
@@ -132,21 +134,15 @@ public class TerrainUIManager : MonoBehaviour
             return;
         }
 
-        // Clear existing options and populate with available configurations
         configDropdown.ClearOptions();
         configDropdown.AddOptions(availableConfigs.Select(config => config.name).ToList());
 
-        // Set default selection
         configDropdown.value = 0;
         configDropdown.RefreshShownValue();
 
-        // Add event listener for when a new configuration is selected
-        configDropdown.onValueChanged.RemoveListener(OnDropdownValueChanged);
-        configDropdown.onValueChanged.AddListener(OnDropdownValueChanged);
-
-        Debug.Log("Configuration dropdown successfully populated.");
+        configDropdown.onValueChanged.RemoveListener(OnConfigDropdownChanged);
+        configDropdown.onValueChanged.AddListener(OnConfigDropdownChanged);
     }
-
 
     /// <summary>
     /// Populates the Voronoi distribution mode dropdown with available options.
@@ -186,29 +182,125 @@ public class TerrainUIManager : MonoBehaviour
             return;
         }
 
-        var featureNames = currentSettings.featureDefinitions?.Select(f => f.name).ToList() ?? new List<string>();
+        // Ensure currentSettings and featureSettings are not null
+        if (currentSettings == null || currentSettings.featureSettings == null)
+        {
+            Debug.LogWarning("No feature settings available in the current configuration.");
+            featureDefinitionsDropdown.ClearOptions();
+            featureDefinitionsDropdown.AddOptions(new List<string> { "No Features Available" });
+            featureDefinitionsDropdown.RefreshShownValue();
+            return;
+        }
+
+        // Extract feature names, or use a fallback if names are missing
+        var featureNames = currentSettings.featureSettings
+            .Select(f => !string.IsNullOrEmpty(f.featureName) ? f.featureName : "Unnamed Feature")
+            .ToList();
+
         if (featureNames.Count == 0)
         {
             featureNames.Add("No Features Available");
         }
 
+        // Update the dropdown with feature names
         featureDefinitionsDropdown.ClearOptions();
         featureDefinitionsDropdown.AddOptions(featureNames);
         featureDefinitionsDropdown.RefreshShownValue();
+
+        Debug.Log($"FeatureDefinitionsDropdown populated with {featureNames.Count} items.");
+    }
+
+
+    private void OnConfigDropdownChanged(int index)
+    {
+        // Validate index
+        if (!IsValidConfigIndex(index))
+        {
+            DisplayError($"Invalid configuration index selected: {index}");
+            return;
+        }
+
+        // Load values from the selected configuration
+        LoadValuesFromConfig(availableConfigs[index]);
+
+        // Ensure that all relevant UI elements are updated to reflect the new configuration
+        UpdateUIFieldsFromSettings(currentSettings);
+
+        // Update the feature definitions dropdown to match the new configuration
+        PopulateFeatureDefinitionsDropdown();
+
+        // Update the feature UI for the first feature in the list
+        if (currentSettings.featureSettings != null && currentSettings.featureSettings.Count > 0)
+        {
+            UpdateFeatureUI(currentSettings.featureSettings[0]);
+        }
+        else
+        {
+            ClearFeatureUI();
+        }
+
+        Debug.Log($"Terrain configuration updated: {availableConfigs[index].name}");
+    }
+
+    private void ClearFeatureUI()
+    {
+        enableFeatureToggle.isOn = false;
+        SetField(featureSpawnProbabilityField, "0");
+        SetField(featureHeightRangeMinField, "0");
+        SetField(featureHeightRangeMaxField, "0");
+    }
+
+    private void OnFeatureDropdownChanged(int index)
+    {
+        if (currentSettings?.featureSettings == null || index < 0 || index >= currentSettings.featureSettings.Count)
+        {
+            ClearFeatureUI();
+            Debug.LogWarning("Invalid feature index selected or no features available.");
+            return;
+        }
+
+        // Update the UI fields with the selected feature's data
+        FeatureSettings selectedFeature = currentSettings.featureSettings[index];
+        UpdateFeatureUI(selectedFeature);
+    }
+
+    private void UpdateFeatureUI(FeatureSettings feature)
+    {
+        if (feature == null)
+        {
+            ClearFeatureUI();
+            return;
+        }
+
+        enableFeatureToggle.isOn = feature.enabled;
+        SetField(featureSpawnProbabilityField, feature.spawnProbability.ToString());
+        SetField(featureHeightRangeMinField, feature.heightRange.x.ToString());
+        SetField(featureHeightRangeMaxField, feature.heightRange.y.ToString());
     }
 
     private void UpdateFeatureSettings()
     {
-        if (useFeaturesToggle != null)
+        if (enableFeatureToggle != null)
         {
-            currentSettings.useFeatures = useFeaturesToggle.isOn;
+            currentSettings.useFeatures = enableFeatureToggle.isOn;
         }
 
-        if (float.TryParse(globalSpawnProbabilityField?.text, out float spawnProbability))
+        if (float.TryParse(featureSpawnProbabilityField?.text, out float spawnProbability))
         {
             currentSettings.globalSpawnProbability = Mathf.Clamp(spawnProbability, 0f, 1f);
         }
+
+        int selectedFeatureIndex = featureDefinitionsDropdown?.value ?? -1;
+        if (selectedFeatureIndex >= 0 && selectedFeatureIndex < currentSettings.featureSettings.Count)
+        {
+            FeatureSettings selectedFeature = currentSettings.featureSettings[selectedFeatureIndex];
+
+            // Example: Update feature settings dynamically (expand as needed)
+            selectedFeature.enabled = true; // or bind to a toggle
+            selectedFeature.spawnProbability = currentSettings.globalSpawnProbability;
+        }
     }
+
 
     /// <summary>
     /// Handles changes to the configuration dropdown and updates terrain settings.
@@ -305,19 +397,14 @@ public class TerrainUIManager : MonoBehaviour
     {
         if (config == null)
         {
-            DisplayError("Cannot load values: Provided configuration is null.");
-            Debug.LogError("LoadValuesFromConfig failed: Config is null.");
+            DisplayError("Provided configuration is null.");
             return;
         }
 
-        Debug.Log($"Loading values from configuration: {config.name}");
-
-        // Safely create and set the current settings
         currentSettings = ScriptableObject.CreateInstance<TerrainGenerationSettings>();
         CopySettings(config, currentSettings);
 
-        // Update UI fields to reflect the loaded configuration
-        UpdateUIFieldsFromSettings(config);
+        UpdateFeatureUI(currentSettings.featureSettings?.FirstOrDefault());
     }
 
     /// <summary>
@@ -329,35 +416,32 @@ public class TerrainUIManager : MonoBehaviour
         if (config == null)
         {
             DisplayError("Cannot update UI fields: Configuration is null.");
-            Debug.LogError("UpdateUIFieldsFromSettings failed: Config is null.");
             return;
         }
 
         Debug.Log("Updating UI fields to reflect current configuration...");
 
-        // Perlin Noise Settings
+        // Update general terrain settings
         UpdatePerlinNoiseFields(config);
-
-        // Fractal Brownian Motion (fBm) Settings
         UpdateFractalBrownianMotionFields(config);
-
-        // Midpoint Displacement Settings
         UpdateMidpointDisplacementFields(config);
-
-        // Voronoi Biomes Settings
         UpdateVoronoiBiomesFields(config);
-
-        // Erosion
         UpdateErosionFields(config);
-
-        // Rivers
         UpdateRiverFields(config);
-
-        // Trails
         UpdateTrailFields(config);
-
-        // Lakes
         UpdateLakeFields(config);
+
+        // Populate and refresh feature dropdown and UI
+        PopulateFeatureDefinitionsDropdown();
+
+        if (config.featureSettings != null && config.featureSettings.Count > 0)
+        {
+            UpdateFeatureUI(config.featureSettings[0]); // Update to the first feature in the list
+        }
+        else
+        {
+            ClearFeatureUI(); // Clear feature UI if no features are present
+        }
     }
 
     /// <summary>
@@ -492,24 +576,41 @@ public class TerrainUIManager : MonoBehaviour
         AddFieldListener(useTrailsToggle, value => currentSettings.useTrails = value);
         AddFieldListener(useLakesToggle, value => currentSettings.useLakes = value);
 
-        AddFieldListener(useFeaturesToggle, value =>
+        AddFieldListener(enableFeatureToggle, value =>
         {
-            currentSettings.useFeatures = value;
-            RegenerateTerrain();
+            if (currentSettings?.featureSettings == null || featureDefinitionsDropdown.value < 0) return;
+            currentSettings.featureSettings[featureDefinitionsDropdown.value].enabled = value;
         });
 
-        AddValidatedFieldListener(globalSpawnProbabilityField, value =>
+        AddValidatedFieldListener(featureSpawnProbabilityField, value =>
         {
+            if (currentSettings?.featureSettings == null || featureDefinitionsDropdown.value < 0) return;
             if (float.TryParse(value, out float probability))
             {
-                currentSettings.globalSpawnProbability = Mathf.Clamp(probability, 0f, 1f);
-                RegenerateTerrain();
+                currentSettings.featureSettings[featureDefinitionsDropdown.value].spawnProbability = Mathf.Clamp(probability, 0f, 1f);
             }
         }, 0f, 1f);
-    
+
+        AddValidatedFieldListener(featureHeightRangeMinField, value =>
+        {
+            if (currentSettings?.featureSettings == null || featureDefinitionsDropdown.value < 0) return;
+            if (float.TryParse(value, out float minHeight))
+            {
+                currentSettings.featureSettings[featureDefinitionsDropdown.value].heightRange = new Vector2(minHeight, currentSettings.featureSettings[featureDefinitionsDropdown.value].heightRange.y);
+            }
+        }, 0f, 1f);
+
+        AddValidatedFieldListener(featureHeightRangeMaxField, value =>
+        {
+            if (currentSettings?.featureSettings == null || featureDefinitionsDropdown.value < 0) return;
+            if (float.TryParse(value, out float maxHeight))
+            {
+                currentSettings.featureSettings[featureDefinitionsDropdown.value].heightRange = new Vector2(currentSettings.featureSettings[featureDefinitionsDropdown.value].heightRange.x, maxHeight);
+            }
+        }, 0f, 1f);
+
         Debug.Log("Listeners successfully added to all UI components.");
     }
-
 
     /// <summary>
     /// Adds listeners for Perlin Noise UI fields.
@@ -934,7 +1035,6 @@ public class TerrainUIManager : MonoBehaviour
         });
     }
 
-
     #endregion
 
     #region Terrain Regeneration
@@ -1165,6 +1265,11 @@ public class TerrainUIManager : MonoBehaviour
         target.useErosion = source.useErosion;
         target.talusAngle = source.talusAngle;
         target.erosionIterations = source.erosionIterations;
+
+        //Features
+        target.useFeatures = source.useFeatures;
+        target.globalSpawnProbability = source.globalSpawnProbability;
+        target.featureSettings = new List<FeatureSettings>(source.featureSettings);
 
         // Texture Mappings
         if (source.textureMappings != null)
