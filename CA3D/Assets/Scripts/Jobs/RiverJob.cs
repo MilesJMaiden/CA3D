@@ -2,6 +2,7 @@ using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
+using UnityEngine;
 
 [BurstCompile]
 public struct RiverJob : IJobParallelFor
@@ -27,6 +28,9 @@ public struct RiverJob : IJobParallelFor
         {
             float carveDepth = math.smoothstep(riverWidth, 0, distanceFromRiver) * startHeight;
             heights[index] -= carveDepth; // Lower the terrain to create a river
+
+            //Debug.Log($"River applied at index {index} (x: {x}, y: {y}), carveDepth: {carveDepth}");
         }
     }
+
 }

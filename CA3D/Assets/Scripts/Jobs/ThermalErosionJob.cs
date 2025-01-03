@@ -8,57 +8,57 @@ public struct ThermalErosionJob : IJobParallelFor
     public int width;
     public int length;
     public float talusAngle;
-    public int iterations;
 
     [ReadOnly]
-    public NativeArray<float> inputHeights;
+    public NativeArray<float> inputBuffer; // Heights to read from
 
     [WriteOnly]
-    public NativeArray<float> outputHeights;
+    public NativeArray<float> outputBuffer; // Heights to write to
 
     public void Execute(int index)
     {
         int x = index % width;
         int y = index / width;
 
-        // Copy input heights to output heights (double buffering)
-        outputHeights[index] = inputHeights[index];
-
-        // Skip boundary cells
+        // Boundary check: retain original height for edge cells
         if (x == 0 || x == width - 1 || y == 0 || y == length - 1)
-            return;
-
-        for (int iter = 0; iter < iterations; iter++)
         {
-            float currentHeight = inputHeights[index];
+            outputBuffer[index] = inputBuffer[index];
+            return;
+        }
 
-            // Process neighbors to simulate thermal erosion
-            float totalHeightChange = 0f;
-            for (int offsetY = -1; offsetY <= 1; offsetY++)
+        float currentHeight = inputBuffer[index];
+        float totalHeightChange = 0f;
+
+        // Iterate over neighbors to simulate erosion
+        for (int offsetY = -1; offsetY <= 1; offsetY++)
+        {
+            for (int offsetX = -1; offsetX <= 1; offsetX++)
             {
-                for (int offsetX = -1; offsetX <= 1; offsetX++)
+                if (offsetX == 0 && offsetY == 0) continue;
+
+                int neighborX = x + offsetX;
+                int neighborY = y + offsetY;
+                int neighborIndex = neighborY * width + neighborX;
+
+                // Validate neighbor index
+                if (neighborIndex < 0 || neighborIndex >= inputBuffer.Length) continue;
+
+                float neighborHeight = inputBuffer[neighborIndex];
+                float heightDiff = currentHeight - neighborHeight;
+
+                if (heightDiff > talusAngle)
                 {
-                    if (offsetX == 0 && offsetY == 0) continue;
+                    float heightChange = heightDiff / 2f; // Distribute height equally
+                    totalHeightChange -= heightChange;
 
-                    int neighborX = x + offsetX;
-                    int neighborY = y + offsetY;
-                    int neighborIndex = neighborY * width + neighborX;
-
-                    if (neighborIndex < 0 || neighborIndex >= inputHeights.Length) continue;
-
-                    float neighborHeight = inputHeights[neighborIndex];
-                    float heightDiff = currentHeight - neighborHeight;
-
-                    if (heightDiff > talusAngle)
-                    {
-                        float heightChange = heightDiff / 2f;
-                        totalHeightChange -= heightChange;
-                        outputHeights[neighborIndex] += heightChange;
-                    }
+                    // Update neighbor height in output buffer
+                    outputBuffer[neighborIndex] += heightChange;
                 }
             }
-
-            outputHeights[index] += totalHeightChange;
         }
+
+        // Apply total height change to the current cell
+        outputBuffer[index] = currentHeight + totalHeightChange;
     }
 }

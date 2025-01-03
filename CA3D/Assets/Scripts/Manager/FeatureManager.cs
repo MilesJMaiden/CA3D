@@ -12,6 +12,7 @@ public class FeatureManager : MonoBehaviour
     [Header("Terrain References")]
     public Terrain terrain;
 
+    public bool featuresEnabled = true; // Track the toggle state
     private TerrainData terrainData;
     private GameObject featureParent;
 
@@ -32,7 +33,7 @@ public class FeatureManager : MonoBehaviour
         }
 
         featureParent = new GameObject("FeatureParent");
-        featureParent.transform.parent = transform; // Keep hierarchy tidy
+        featureParent.transform.SetParent(transform);
     }
 
     /// <summary>
@@ -46,14 +47,11 @@ public class FeatureManager : MonoBehaviour
             return;
         }
 
-        // Step 1: Remove any previously instantiated features
         InitializeFeatureParent();
 
-        // Step 2: Get terrain heightmap
         float[,] heights = terrainData.GetHeights(0, 0, terrainData.heightmapResolution, terrainData.heightmapResolution);
         NativeArray<float> heightMap = FlattenHeightMap(heights);
 
-        // Step 3: Iterate through each feature and place based on rules
         foreach (var feature in featureSettings)
         {
             if (!feature.enabled)
@@ -64,18 +62,14 @@ public class FeatureManager : MonoBehaviour
 
             NativeArray<int> placementMap = new NativeArray<int>(heightMap.Length, Allocator.TempJob);
 
-            // Schedule placement job for the feature
             var handle = SchedulePlacementJob(feature, heightMap, placementMap);
             handle.Complete();
 
-            // Instantiate features based on placement map
             InstantiateFeatures(feature, placementMap);
 
-            // Dispose of placement map
             placementMap.Dispose();
         }
 
-        // Dispose of height map
         heightMap.Dispose();
     }
 
@@ -83,19 +77,21 @@ public class FeatureManager : MonoBehaviour
     /// Clears all instantiated features.
     /// </summary>
     public void ClearFeatures()
-    {
-        if (featureParent != null)
         {
-            Destroy(featureParent);
-            InitializeFeatureParent();
+            if (featureParent != null)
+            {
+                Destroy(featureParent);
+                InitializeFeatureParent();
+            }
         }
-    }
 
     /// <summary>
     /// Toggles feature placement.
     /// </summary>
     public void ToggleFeatures(bool enabled)
     {
+        featuresEnabled = enabled;
+
         if (enabled)
         {
             PlaceFeatures();

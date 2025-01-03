@@ -84,7 +84,7 @@ MonoBehaviour:
   trailRandomness: 2
   useErosion: 0
   talusAngle: 0.1
-  erosionIterations: 0
+  erosionIterations: 1
   useFeatures: 1
   globalSpawnProbability: 0.5
   featureSettings:

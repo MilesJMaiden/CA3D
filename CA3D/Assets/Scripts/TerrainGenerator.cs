@@ -84,17 +84,21 @@ public class TerrainGenerator : ITerrainGenerator
                 case RiverModifier riverModifier when settings.useRivers:
                     dependency = riverModifier.ScheduleJob(heightsNative, width, length, settings, dependency);
                     break;
+
                 case TrailModifier trailModifier when settings.useTrails:
                     dependency = trailModifier.ScheduleJob(heightsNative, width, length, settings, dependency);
                     break;
+
                 case LakeModifier lakeModifier when settings.useLakes:
                     dependency = lakeModifier.ScheduleJob(heightsNative, width, length, settings, dependency);
                     break;
+
                 case ThermalErosionModifier erosionModifier when settings.useErosion:
                     dependency = erosionModifier.ScheduleJob(heightsNative, width, length, settings, dependency);
                     break;
+
                 default:
-                    Debug.LogWarning($"Feature {feature.GetType()} does not support jobs.");
+                    Debug.LogWarning($"Feature {feature.GetType()} does not support jobs or is not enabled.");
                     break;
             }
         }

@@ -78,18 +78,21 @@ public class TerrainGeneratorManager : MonoBehaviour
         ValidateAndAdjustDimensions();
         InitializeGenerator();
 
+        // Update terrain dimensions and resolution
         m_TerrainData.heightmapResolution = width + 1;
         m_TerrainData.size = new Vector3(width, height, length);
 
         SyncTerrainLayersWithMappings();
 
+        // Generate the terrain heights
         float[,] heights = terrainGenerator.GenerateHeights(width, length);
 
         if (heights != null)
         {
+            // Apply generated heights to the terrain
             m_TerrainData.SetHeights(0, 0, heights);
 
-            // Apply textures with biomes
+            // Apply textures or biomes if available
             if (terrainGenerator is TerrainGenerator generator && generator.BiomeIndices.IsCreated)
             {
                 ApplyTexturesWithBiomes(heights, generator.BiomeIndices, terrainSettings, width, length, m_TerrainData);
@@ -100,10 +103,11 @@ public class TerrainGeneratorManager : MonoBehaviour
                 ApplyTextures(heights, terrainSettings, width, length, m_TerrainData);
             }
 
-            // Notify FeatureManager to re-place features
+            // Place features if the feature manager is enabled and features are toggled on
             FeatureManager featureManager = GetComponent<FeatureManager>();
-            if (featureManager != null)
+            if (featureManager != null && featureManager.featuresEnabled)
             {
+                featureManager.ClearFeatures();
                 featureManager.PlaceFeatures();
             }
         }
@@ -112,7 +116,6 @@ public class TerrainGeneratorManager : MonoBehaviour
             Debug.LogError("Heights array is null. Terrain generation aborted.");
         }
     }
-
 
     private void AssignDefaultTextures()
     {

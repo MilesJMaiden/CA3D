@@ -82,9 +82,9 @@ MonoBehaviour:
   trailEndPoint: {x: 0.8, y: 0.1}
   trailWidth: 3
   trailRandomness: 2
-  useErosion: 1
+  useErosion: 0
   talusAngle: 0.1
-  erosionIterations: 5
+  erosionIterations: 1
   useFeatures: 1
   globalSpawnProbability: 0.5
   featureSettings:

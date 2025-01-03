@@ -87,6 +87,11 @@ public class TerrainUIManager : MonoBehaviour
     public TMP_InputField featureHeightRangeMaxField; // InputField for maximum height range
     public TMP_Dropdown featureDefinitionsDropdown;
 
+    [Header("Feature Toggles")]
+    public GameObject featureToggleContainer; // A parent GameObject to hold all feature toggles
+    public GameObject togglePrefab; // Prefab for individual feature toggles
+    private List<Toggle> featureToggles = new List<Toggle>();
+
     public TMP_Text errorMessage;
 
     [Header("Terrain Generator Reference")]
@@ -274,53 +279,60 @@ public class TerrainUIManager : MonoBehaviour
         SetField(featureHeightRangeMaxField, feature.heightRange.y.ToString());
     }
 
-    private void UpdateFeatureSettings()
+    private void PopulateFeatureToggles()
     {
-        if (enableFeatureToggle != null)
+        if (featureToggleContainer == null || togglePrefab == null)
         {
-            currentSettings.useFeatures = enableFeatureToggle.isOn;
-        }
-
-        if (float.TryParse(featureSpawnProbabilityField?.text, out float spawnProbability))
-        {
-            currentSettings.globalSpawnProbability = Mathf.Clamp(spawnProbability, 0f, 1f);
-        }
-
-        int selectedFeatureIndex = featureDefinitionsDropdown?.value ?? -1;
-        if (selectedFeatureIndex >= 0 && selectedFeatureIndex < currentSettings.featureSettings.Count)
-        {
-            FeatureSettings selectedFeature = currentSettings.featureSettings[selectedFeatureIndex];
-
-            // Example: Update feature settings dynamically (expand as needed)
-            selectedFeature.enabled = true; // or bind to a toggle
-            selectedFeature.spawnProbability = currentSettings.globalSpawnProbability;
-        }
-    }
-
-
-    /// <summary>
-    /// Handles changes to the configuration dropdown and updates terrain settings.
-    /// </summary>
-    /// <param name="index">The selected dropdown index.</param>
-    private void OnDropdownValueChanged(int index)
-    {
-        // Validate index
-        if (!IsValidConfigIndex(index))
-        {
-            DisplayError($"Invalid configuration index selected: {index}");
+            Debug.LogError("FeatureToggleContainer or TogglePrefab is not assigned.");
             return;
         }
 
-        // Load new settings from the selected configuration
-        LoadValuesFromConfig(availableConfigs[index]);
-
-        // Regenerate terrain and update layers
-        if (RegenerateTerrainAndApplyLayers())
+        // Clear existing toggles
+        foreach (Transform child in featureToggleContainer.transform)
         {
-            Debug.Log($"Configuration updated successfully: {availableConfigs[index].name}");
-            ClearError();
+            Destroy(child.gameObject);
+        }
+
+        // Create a toggle for each feature
+        foreach (var feature in currentSettings.featureSettings)
+        {
+            GameObject toggleObj = Instantiate(togglePrefab, featureToggleContainer.transform);
+            Toggle toggle = toggleObj.GetComponent<Toggle>();
+            TextMeshProUGUI label = toggleObj.GetComponentInChildren<TextMeshProUGUI>();
+
+            if (label != null)
+            {
+                label.text = feature.featureName;
+            }
+
+            toggle.isOn = feature.enabled;
+            toggle.onValueChanged.AddListener(value =>
+            {
+                feature.enabled = value;
+                FeatureManager featureManager = FindObjectOfType<FeatureManager>();
+                if (featureManager != null)
+                {
+                    featureManager.PlaceFeatures(); // Refresh features
+                }
+            });
         }
     }
+
+
+    private void ToggleFeature(int featureIndex, bool isEnabled)
+    {
+        if (featureIndex < 0 || featureIndex >= currentSettings.featureSettings.Count) return;
+
+        FeatureSettings feature = currentSettings.featureSettings[featureIndex];
+        feature.enabled = isEnabled;
+
+        FeatureManager featureManager = terrainGeneratorManager.GetComponent<FeatureManager>();
+        if (featureManager != null)
+        {
+            featureManager.PlaceFeatures(); // Refresh feature placement
+        }
+    }
+
 
     /// <summary>
     /// Validates whether the provided index is within the range of available configurations.
@@ -331,33 +343,6 @@ public class TerrainUIManager : MonoBehaviour
     {
         return index >= 0 && index < availableConfigs.Length;
     }
-
-    /// <summary>
-    /// Regenerates the terrain and ensures terrain layers are applied.
-    /// </summary>
-    /// <returns>True if successful; otherwise, false.</returns>
-    private bool RegenerateTerrainAndApplyLayers()
-    {
-        if (terrainGeneratorManager == null)
-        {
-            Debug.LogError("TerrainGeneratorManager is null. Cannot regenerate terrain or apply layers.");
-            return false;
-        }
-
-        try
-        {
-            RegenerateTerrain();
-            terrainGeneratorManager.ApplyTerrainLayers();
-            return true;
-        }
-        catch (System.Exception ex)
-        {
-            Debug.LogError($"Error during terrain regeneration or layer application: {ex.Message}");
-            DisplayError($"Error during terrain regeneration: {ex.Message}");
-            return false;
-        }
-    }
-
 
     /// <summary>
     /// Loads the default configuration from the available configurations.
@@ -393,14 +378,15 @@ public class TerrainUIManager : MonoBehaviour
     {
         if (config == null)
         {
-            DisplayError("Provided configuration is null.");
+            //DisplayError("Provided configuration is null.");
             return;
         }
 
         currentSettings = ScriptableObject.CreateInstance<TerrainGenerationSettings>();
         CopySettings(config, currentSettings);
 
-        UpdateFeatureUI(currentSettings.featureSettings?.FirstOrDefault());
+        UpdateUIFieldsFromSettings(config);
+        PopulateFeatureToggles(); // Dynamically create toggles
     }
 
     /// <summary>
@@ -607,6 +593,18 @@ public class TerrainUIManager : MonoBehaviour
 
         featureDefinitionsDropdown.onValueChanged.AddListener(OnFeatureDropdownChanged);
 
+        AddFieldListener(enableFeatureToggle, value =>
+        {
+            if (terrainGeneratorManager != null)
+            {
+                FeatureManager featureManager = terrainGeneratorManager.GetComponent<FeatureManager>();
+                if (featureManager != null)
+                {
+                    featureManager.ToggleFeatures(value);
+                }
+            }
+        });
+
         Debug.Log("Listeners successfully added to all UI components.");
     }
 
@@ -812,18 +810,19 @@ public class TerrainUIManager : MonoBehaviour
         AddFieldListener(useRiversToggle, value =>
         {
             currentSettings.useRivers = value;
-            ClearError();
-            RegenerateTerrain();
+            RegenerateTerrain(); // Trigger terrain regeneration
         });
 
         AddValidatedFieldListener(riverWidthField, value =>
         {
             currentSettings.riverWidth = float.Parse(value);
+            RegenerateTerrain(); // Trigger terrain regeneration
         }, 1f, 20f);
 
         AddValidatedFieldListener(riverHeightField, value =>
         {
             currentSettings.riverHeight = float.Parse(value);
+            RegenerateTerrain(); // Trigger terrain regeneration
         }, 0f, 1f);
     }
 

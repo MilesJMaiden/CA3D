@@ -6,48 +6,45 @@ public class ThermalErosionModifier : IFeatureModifier
 {
     public JobHandle ScheduleJob(NativeArray<float> heights, int width, int length, TerrainGenerationSettings settings, JobHandle dependency)
     {
-        NativeArray<float> buffer = new NativeArray<float>(heights.Length, Allocator.TempJob);
+        NativeArray<float> bufferA = new NativeArray<float>(heights.Length, Allocator.TempJob);
+        NativeArray<float> bufferB = new NativeArray<float>(heights.Length, Allocator.TempJob);
 
-        var erosionJob = new ThermalErosionJob
+        // Copy initial heights into bufferA
+        var initJob = new CopyJob
         {
-            width = width,
-            length = length,
-            talusAngle = settings.talusAngle,
-            iterations = settings.erosionIterations,
-            inputHeights = heights,
-            outputHeights = buffer
+            source = heights,
+            destination = bufferA
         };
+        JobHandle handle = initJob.Schedule(dependency);
 
-        JobHandle handle = erosionJob.Schedule(heights.Length, 64, dependency);
-
-        // Swap input and output
-        var copyJob = new CopyJob
+        // Alternate buffers for erosion iterations
+        for (int i = 0; i < settings.erosionIterations; i++)
         {
-            source = buffer,
+            var erosionJob = new ThermalErosionJob
+            {
+                width = width,
+                length = length,
+                talusAngle = settings.talusAngle,
+                inputBuffer = i % 2 == 0 ? bufferA : bufferB,
+                outputBuffer = i % 2 == 0 ? bufferB : bufferA
+            };
+
+            handle = erosionJob.Schedule(heights.Length, 64, handle);
+        }
+
+        // Copy the final buffer back to heights
+        var finalCopyJob = new CopyJob
+        {
+            source = settings.erosionIterations % 2 == 0 ? bufferA : bufferB,
             destination = heights
         };
+        handle = finalCopyJob.Schedule(handle);
 
-        handle = copyJob.Schedule(handle);
-
-        buffer.Dispose(handle);
+        // Dispose buffers
+        bufferA.Dispose(handle);
+        bufferB.Dispose(handle);
 
         return handle;
-    }
-
-    [BurstCompile]
-    private struct ThermalErosionJob : IJobParallelFor
-    {
-        public int width;
-        public int length;
-        public float talusAngle;
-        public int iterations;
-        [ReadOnly] public NativeArray<float> inputHeights;
-        [WriteOnly] public NativeArray<float> outputHeights;
-
-        public void Execute(int index)
-        {
-            // Perform thermal erosion logic, writing to outputHeights
-        }
     }
 
     [BurstCompile]
