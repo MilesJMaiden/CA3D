@@ -65,15 +65,18 @@ public class VoronoiBiomesModifier : IHeightModifier
     /// <returns>A NativeArray of Voronoi points.</returns>
     private NativeArray<float2> GenerateVoronoiPoints(TerrainGenerationSettings settings, int width, int length)
     {
-        var points = new NativeArray<float2>(settings.voronoiCellCount, Allocator.TempJob);
+        // Clamp voronoiCellCount to the number of biomes
+        int cellCount = Mathf.Clamp(settings.voronoiCellCount, 1, settings.biomes.Length);
+
+        var points = new NativeArray<float2>(cellCount, Allocator.TempJob);
 
         switch (settings.voronoiDistributionMode)
         {
             case TerrainGenerationSettings.DistributionMode.Grid:
-                int cellsX = (int)Mathf.Sqrt(settings.voronoiCellCount);
+                int cellsX = (int)Mathf.Sqrt(cellCount);
                 int cellsY = cellsX;
 
-                for (int i = 0; i < settings.voronoiCellCount; i++)
+                for (int i = 0; i < cellCount; i++)
                 {
                     int x = i % cellsX;
                     int y = i / cellsX;
@@ -86,9 +89,23 @@ public class VoronoiBiomesModifier : IHeightModifier
 
             case TerrainGenerationSettings.DistributionMode.Random:
                 Unity.Mathematics.Random random = new Unity.Mathematics.Random((uint)settings.randomSeed);
-                for (int i = 0; i < settings.voronoiCellCount; i++)
+                for (int i = 0; i < cellCount; i++)
                 {
                     points[i] = new float2(random.NextFloat(0, width), random.NextFloat(0, length));
+                }
+                break;
+
+            case TerrainGenerationSettings.DistributionMode.Custom:
+                if (settings.biomes.Length != settings.voronoiCellCount)
+                {
+                    Debug.LogWarning($"Custom mode expects {settings.biomes.Length} cells, but got {settings.voronoiCellCount}. Adjusting.");
+                }
+
+                for (int i = 0; i < cellCount; i++)
+                {
+                    float normalizedX = (i / (float)cellCount) * width;
+                    float normalizedY = (i % cellCount) * length;
+                    points[i] = new float2(normalizedX, normalizedY);
                 }
                 break;
 
@@ -99,6 +116,7 @@ public class VoronoiBiomesModifier : IHeightModifier
 
         return points;
     }
+
 
     /// <summary>
     /// Generates biome thresholds for terrain layers.

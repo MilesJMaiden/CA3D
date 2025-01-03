@@ -3,6 +3,7 @@ using UnityEngine.UI;
 using TMPro;
 using System.Collections.Generic;
 using System.Linq;
+using System;
 
 /// <summary>
 /// Manages the UI for adjusting terrain generation settings and regenerates the terrain dynamically
@@ -47,8 +48,6 @@ public class TerrainUIManager : MonoBehaviour
 
     // Voronoi Biomes
     public TMP_InputField voronoiCellCountField;
-    public TMP_InputField voronoiHeightRangeMinField;
-    public TMP_InputField voronoiHeightRangeMaxField;
     public TMP_Dropdown voronoiDistributionModeDropdown;
     public Toggle useVoronoiBiomesToggle;
 
@@ -354,21 +353,6 @@ public class TerrainUIManager : MonoBehaviour
         // Update the Voronoi cell count field
         SetField(voronoiCellCountField, config.voronoiCellCount.ToString());
 
-        // Ensure the height range values are updated
-        if (config.biomes != null && config.biomes.Length > 0)
-        {
-            // Assuming the height range is based on the first biome's thresholds
-            var thresholds = config.biomes[0].thresholds;
-            SetField(voronoiHeightRangeMinField, thresholds.minHeight1.ToString());
-            SetField(voronoiHeightRangeMaxField, thresholds.maxHeight3.ToString());
-        }
-        else
-        {
-            // Fallback values if no biomes are defined
-            SetField(voronoiHeightRangeMinField, "0.0");
-            SetField(voronoiHeightRangeMaxField, "1.0");
-        }
-
         // Update the distribution mode dropdown
         voronoiDistributionModeDropdown.value = (int)config.voronoiDistributionMode;
         voronoiDistributionModeDropdown.RefreshShownValue();
@@ -591,54 +575,23 @@ public class TerrainUIManager : MonoBehaviour
     /// </summary>
     private void AddVoronoiBiomesListeners()
     {
-        // Listener for Voronoi cell count
         AddValidatedFieldListener(voronoiCellCountField, value =>
         {
             if (int.TryParse(value, out int cellCount))
             {
-                currentSettings.voronoiCellCount = Mathf.Clamp(cellCount, 1, 100);
+                currentSettings.voronoiCellCount = Mathf.Clamp(cellCount, 1, currentSettings.biomes.Length);
                 RegenerateTerrain(); // Trigger terrain regeneration
             }
             else
             {
-                DisplayError("Invalid input for Voronoi cell count. Must be an integer between 1 and 100.");
+                //DisplayError("Invalid input for Voronoi cell count. Must be an integer between 1 and the number of biomes.");
             }
-        }, 1, 100);
-
-        // Listeners for biome-specific height ranges
-        foreach (var biome in currentSettings.biomes)
-        {
-            AddValidatedFieldListener(voronoiHeightRangeMinField, value =>
-            {
-                if (float.TryParse(value, out float minHeight))
-                {
-                    biome.thresholds.minHeight1 = Mathf.Clamp(minHeight, 0f, biome.thresholds.maxHeight1);
-                    RegenerateTerrain(); // Trigger terrain regeneration
-                }
-                else
-                {
-                    DisplayError($"Invalid input for minimum height of biome {biome.name}. Must be a float between 0 and 1.");
-                }
-            }, 0f, 1f);
-
-            AddValidatedFieldListener(voronoiHeightRangeMaxField, value =>
-            {
-                if (float.TryParse(value, out float maxHeight))
-                {
-                    biome.thresholds.maxHeight1 = Mathf.Clamp(maxHeight, biome.thresholds.minHeight1, 1f);
-                    RegenerateTerrain(); // Trigger terrain regeneration
-                }
-                else
-                {
-                    DisplayError($"Invalid input for maximum height of biome {biome.name}. Must be a float between 0 and 1.");
-                }
-            }, 0f, 1f);
-        }
+        }, 1, currentSettings.biomes.Length);
 
         // Listener for distribution mode dropdown
         AddDropdownListener(voronoiDistributionModeDropdown, value =>
         {
-            if (System.Enum.IsDefined(typeof(TerrainGenerationSettings.DistributionMode), value))
+            if (Enum.IsDefined(typeof(TerrainGenerationSettings.DistributionMode), value))
             {
                 currentSettings.voronoiDistributionMode = (TerrainGenerationSettings.DistributionMode)value;
                 RegenerateTerrain(); // Trigger terrain regeneration
@@ -648,8 +601,8 @@ public class TerrainUIManager : MonoBehaviour
                 DisplayError("Invalid distribution mode selected for Voronoi biomes.");
             }
         });
-    }
 
+    }
 
     /// <summary>
     /// Adds listeners for Erosion UI fields.

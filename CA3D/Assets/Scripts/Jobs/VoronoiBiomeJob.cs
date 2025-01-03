@@ -38,25 +38,18 @@ public struct VoronoiBiomeJob : IJobParallelFor
 
         biomeIndices[index] = nearestBiome;
 
-        // Assign terrain layers based on height thresholds
+        // Determine terrain layer indices within the biome
         float height = heights[index];
         var thresholds = biomeThresholds[nearestBiome];
 
         if (height >= thresholds.c0.x && height <= thresholds.c0.y)
-        {
             terrainLayerIndices[index] = 0; // First layer
-        }
         else if (height >= thresholds.c1.x && height <= thresholds.c1.y)
-        {
             terrainLayerIndices[index] = 1; // Second layer
-        }
         else if (height >= thresholds.c2.x && height <= thresholds.c2.y)
-        {
             terrainLayerIndices[index] = 2; // Third layer
-        }
         else
-        {
             terrainLayerIndices[index] = -1; // No layer applies
-        }
     }
+
 }

@@ -76,6 +76,7 @@ public class TerrainGeneratorManager : MonoBehaviour
 
     public void GenerateTerrain()
     {
+        ValidateVoronoiCellCount();
         ValidateAndAdjustDimensions();
         InitializeGenerator();
 
@@ -152,6 +153,19 @@ public class TerrainGeneratorManager : MonoBehaviour
             if (heightsNative.IsCreated) heightsNative.Dispose();
             if (biomeIndices.IsCreated) biomeIndices.Dispose();
             if (terrainLayerIndices.IsCreated) terrainLayerIndices.Dispose();
+        }
+    }
+
+    private void ValidateVoronoiCellCount()
+    {
+        if (terrainSettings.useVoronoiBiomes)
+        {
+            int maxCells = terrainSettings.biomes.Length;
+            if (terrainSettings.voronoiCellCount > maxCells)
+            {
+                //Debug.LogWarning($"Voronoi cell count exceeds biome count ({maxCells}). Clamping to biome count.");
+                terrainSettings.voronoiCellCount = maxCells;
+            }
         }
     }
 
@@ -640,28 +654,30 @@ public class TerrainGeneratorManager : MonoBehaviour
         TerrainGenerationSettings.BiomeThresholds thresholds,
         float height)
     {
-        // Layer 1
-        if (height >= thresholds.minHeight1 && height <= thresholds.maxHeight1)
-        {
-            int layer1Index = Array.IndexOf(layers, thresholds.layer1);
-            float weight = CalculateWeight(height, thresholds.minHeight1, thresholds.maxHeight1);
-            if (layer1Index >= 0) splatmap[x, y, layer1Index] += weight;
-        }
+        // Iterate through all thresholds and assign weights
+        AssignWeight(splatmap, x, y, layers, thresholds.layer1, thresholds.minHeight1, thresholds.maxHeight1, height);
+        AssignWeight(splatmap, x, y, layers, thresholds.layer2, thresholds.minHeight2, thresholds.maxHeight2, height);
+        AssignWeight(splatmap, x, y, layers, thresholds.layer3, thresholds.minHeight3, thresholds.maxHeight3, height);
+    }
 
-        // Layer 2
-        if (height >= thresholds.minHeight2 && height <= thresholds.maxHeight2)
+    private void AssignWeight(
+    float[,,] splatmap,
+    int x,
+    int y,
+    TerrainLayer[] layers,
+    TerrainLayer layer,
+    float minHeight,
+    float maxHeight,
+    float height)
+    {
+        if (layer != null && height >= minHeight && height <= maxHeight)
         {
-            int layer2Index = Array.IndexOf(layers, thresholds.layer2);
-            float weight = CalculateWeight(height, thresholds.minHeight2, thresholds.maxHeight2);
-            if (layer2Index >= 0) splatmap[x, y, layer2Index] += weight;
-        }
-
-        // Layer 3
-        if (height >= thresholds.minHeight3 && height <= thresholds.maxHeight3)
-        {
-            int layer3Index = Array.IndexOf(layers, thresholds.layer3);
-            float weight = CalculateWeight(height, thresholds.minHeight3, thresholds.maxHeight3);
-            if (layer3Index >= 0) splatmap[x, y, layer3Index] += weight;
+            int layerIndex = Array.IndexOf(layers, layer);
+            if (layerIndex >= 0)
+            {
+                float weight = CalculateWeight(height, minHeight, maxHeight);
+                splatmap[x, y, layerIndex] += weight;
+            }
         }
     }
 

@@ -31,7 +31,7 @@ MonoBehaviour:
   roughness: 2
   seed: 1234
   useVoronoiBiomes: 0
-  voronoiCellCount: 4
+  voronoiCellCount: 3
   voronoiBlendFactor: 0.5
   voronoiDistributionMode: 1
   biomes:
