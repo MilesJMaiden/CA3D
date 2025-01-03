@@ -8,12 +8,12 @@ public struct VoronoiBiomeJob : IJobParallelFor
 {
     [ReadOnly] public int width;
     [ReadOnly] public int length;
-    [ReadOnly] public NativeArray<float2> points;
+    [ReadOnly] public NativeArray<float2> voronoiPoints;
+    [ReadOnly] public NativeArray<float3x3> biomeThresholds;
     [ReadOnly] public float maxDistance;
-    [ReadOnly] public float2 heightRange;
-    [ReadOnly] public NativeArray<float> falloffSamples; // Sampled falloff curve values
-    [ReadOnly] public int sampleCount; // Number of samples in the falloff curve
-    [ReadOnly] public float blendFactor; // Blending factor to control Voronoi influence
+
+    [WriteOnly] public NativeArray<int> biomeIndices;
+    [WriteOnly] public NativeArray<int> terrainLayerIndices;
 
     public NativeArray<float> heights;
 
@@ -21,29 +21,42 @@ public struct VoronoiBiomeJob : IJobParallelFor
     {
         int x = index % width;
         int y = index / width;
-
         float2 currentPoint = new float2(x, y);
 
-        // Find the nearest Voronoi point
         float minDistSquared = float.MaxValue;
-        foreach (float2 point in points)
+        int nearestBiome = 0;
+
+        for (int i = 0; i < voronoiPoints.Length; i++)
         {
-            float distSquared = math.distancesq(currentPoint, point);
-            minDistSquared = math.min(minDistSquared, distSquared);
+            float distSquared = math.distancesq(currentPoint, voronoiPoints[i]);
+            if (distSquared < minDistSquared)
+            {
+                minDistSquared = distSquared;
+                nearestBiome = i;
+            }
         }
 
-        // Normalize the distance
-        float normalizedDistance = math.sqrt(minDistSquared) / maxDistance;
+        biomeIndices[index] = nearestBiome;
 
-        // Sample the falloff curve
-        int sampleIndex = (int)(normalizedDistance * (sampleCount - 1));
-        sampleIndex = math.clamp(sampleIndex, 0, sampleCount - 1);
-        float falloffValue = falloffSamples[sampleIndex];
+        // Assign terrain layers based on height thresholds
+        float height = heights[index];
+        var thresholds = biomeThresholds[nearestBiome];
 
-        // Calculate Voronoi height contribution
-        float voronoiHeight = math.lerp(heightRange.x, heightRange.y, falloffValue);
-
-        // Blend Voronoi height with existing height
-        heights[index] = math.lerp(heights[index], voronoiHeight, blendFactor);
+        if (height >= thresholds.c0.x && height <= thresholds.c0.y)
+        {
+            terrainLayerIndices[index] = 0; // First layer
+        }
+        else if (height >= thresholds.c1.x && height <= thresholds.c1.y)
+        {
+            terrainLayerIndices[index] = 1; // Second layer
+        }
+        else if (height >= thresholds.c2.x && height <= thresholds.c2.y)
+        {
+            terrainLayerIndices[index] = 2; // Third layer
+        }
+        else
+        {
+            terrainLayerIndices[index] = -1; // No layer applies
+        }
     }
 }

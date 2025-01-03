@@ -65,32 +65,71 @@ public class TerrainGenerationSettings : ScriptableObject
     public float seed = 1f;
 
     [Header("Voronoi Biomes Settings")]
-    [Tooltip("Enable or disable Voronoi Biomes for terrain generation.")]
+    [Tooltip("Enable or disable Voronoi biomes.")]
     public bool useVoronoiBiomes;
 
-    [Tooltip("Number of Voronoi cells to generate.")]
+    [Tooltip("Number of Voronoi cells.")]
     public int voronoiCellCount = 10;
 
-    [Tooltip("Height range for Voronoi cells.")]
-    public Vector2 voronoiHeightRange = new Vector2(0.1f, 0.9f);
-
-    [Tooltip("Falloff curve for Voronoi biomes.")]
-    public AnimationCurve voronoiFalloffCurve = AnimationCurve.Linear(0, 1, 1, 0);
-
-    [Tooltip("Distribution mode for Voronoi cells.")]
-    public DistributionMode voronoiDistributionMode;
-
-    [Tooltip("Custom points for Voronoi biomes (used in Custom mode).")]
-    public List<Vector2> customVoronoiPoints = new List<Vector2>();
-
-    [Tooltip("Blend factor for Voronoi biomes' influence.")]
-    [Range(0f, 1f)]
+    [Tooltip("Blend factor for Voronoi biomes.")]
     public float voronoiBlendFactor = 0.5f;
+
+    [Tooltip("Distribution mode for Voronoi points.")]
+    public DistributionMode voronoiDistributionMode = DistributionMode.Random;
+
+    [Tooltip("Biomes with thresholds and terrain layers.")]
+    public Biome[] biomes;
+
+    public int BiomeCount => biomes?.Length ?? 0; // Convenience property for biome count
+
+    [System.Serializable]
+    public class Biome
+    {
+        [Tooltip("Name of the biome.")]
+        public string name;
+
+        [Tooltip("Thresholds for terrain layers.")]
+        public BiomeThresholds thresholds;
+    }
+
+    [System.Serializable]
+    public struct BiomeThresholds
+    {
+        [Header("Layer 1 Settings")]
+        [Tooltip("Terrain layer for the first threshold.")]
+        public TerrainLayer layer1;
+
+        [Tooltip("Minimum height for the first threshold.")]
+        public float minHeight1;
+
+        [Tooltip("Maximum height for the first threshold.")]
+        public float maxHeight1;
+
+        [Header("Layer 2 Settings")]
+        [Tooltip("Terrain layer for the second threshold.")]
+        public TerrainLayer layer2;
+
+        [Tooltip("Minimum height for the second threshold.")]
+        public float minHeight2;
+
+        [Tooltip("Maximum height for the second threshold.")]
+        public float maxHeight2;
+
+        [Header("Layer 3 Settings")]
+        [Tooltip("Terrain layer for the third threshold.")]
+        public TerrainLayer layer3;
+
+        [Tooltip("Minimum height for the third threshold.")]
+        public float minHeight3;
+
+        [Tooltip("Maximum height for the third threshold.")]
+        public float maxHeight3;
+    }
 
     public enum DistributionMode
     {
-        Random,
         Grid,
+        Random,
         Custom
     }
 
@@ -161,13 +200,6 @@ public class TerrainGenerationSettings : ScriptableObject
     public int erosionIterations = 3;
 
     [Header("Feature Settings")]
-    [Tooltip("Enable feature placement on the terrain.")]
-    public bool useFeatures;
-
-    [Tooltip("Global spawn probability for features.")]
-    [Range(0f, 1f)]
-    public float globalSpawnProbability = 0.5f;
-
     [Tooltip("Feature definitions for terrain.")]
     public List<FeatureSettings> featureSettings;
 }

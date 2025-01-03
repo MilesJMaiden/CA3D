@@ -11,7 +11,6 @@ public static class FeatureModifierFactory
     {
         var modifiers = new List<IFeatureModifier>();
 
-        if (settings.useRivers) modifiers.Add(new RiverModifier());
         if (settings.useTrails) modifiers.Add(new TrailModifier());
         if (settings.useLakes) modifiers.Add(new LakeModifier());
         if (settings.useErosion) modifiers.Add(new ThermalErosionModifier());

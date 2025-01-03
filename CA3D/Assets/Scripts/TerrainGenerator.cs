@@ -45,9 +45,18 @@ public class TerrainGenerator : ITerrainGenerator
         return heights;
     }
 
+    /// <summary>
+    /// Applies height modifiers to the terrain heights using the specified modifiers.
+    /// </summary>
+    /// <param name="heightsNative">NativeArray of terrain heights.</param>
+    /// <param name="width">The width of the terrain.</param>
+    /// <param name="length">The length of the terrain.</param>
+    /// <param name="dependency">The JobHandle dependency for scheduling jobs.</param>
+    /// <returns>The updated JobHandle after applying all modifiers.</returns>
     private JobHandle ApplyHeightModifiers(NativeArray<float> heightsNative, int width, int length, JobHandle dependency)
     {
         NativeArray<int> biomeIndices = default;
+        NativeArray<int> terrainLayerIndices = default;
 
         foreach (var modifier in heightModifiers)
         {
@@ -56,24 +65,44 @@ public class TerrainGenerator : ITerrainGenerator
                 case PerlinNoiseModifier perlinModifier:
                     dependency = perlinModifier.ScheduleJob(heightsNative, width, length, settings, dependency);
                     break;
+
                 case FractalBrownianMotionModifier fBmModifier:
                     dependency = fBmModifier.ScheduleJob(heightsNative, width, length, settings, dependency);
                     break;
+
                 case MidpointDisplacementModifier midpointModifier:
                     dependency = midpointModifier.ScheduleJob(heightsNative, width, length, settings, dependency);
                     break;
+
                 case VoronoiBiomesModifier voronoiModifier:
+                    // Initialize NativeArrays for biome and terrain layer indices
+                    biomeIndices = new NativeArray<int>(width * length, Allocator.TempJob);
+                    terrainLayerIndices = new NativeArray<int>(width * length, Allocator.TempJob);
+
+                    // Schedule the Voronoi biomes job
                     dependency = voronoiModifier.ScheduleJob(
-                        heightsNative, width, length, settings, dependency, out biomeIndices);
+                        heightsNative,
+                        biomeIndices,
+                        terrainLayerIndices,
+                        width,
+                        length,
+                        settings,
+                        dependency
+                    );
+
+                    // Store the biome indices for later use
                     BiomeIndices = biomeIndices;
                     break;
+
                 default:
                     Debug.LogWarning($"Modifier {modifier.GetType()} does not support jobs.");
                     break;
             }
         }
+
         return dependency;
     }
+
 
     private JobHandle ApplyFeatureModifiers(NativeArray<float> heightsNative, int width, int length, JobHandle dependency)
     {
@@ -81,10 +110,6 @@ public class TerrainGenerator : ITerrainGenerator
         {
             switch (feature)
             {
-                case RiverModifier riverModifier when settings.useRivers:
-                    dependency = riverModifier.ScheduleJob(heightsNative, width, length, settings, dependency);
-                    break;
-
                 case TrailModifier trailModifier when settings.useTrails:
                     dependency = trailModifier.ScheduleJob(heightsNative, width, length, settings, dependency);
                     break;

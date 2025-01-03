@@ -3,11 +3,15 @@ using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
+using static Unity.Cinemachine.CinemachineDecollider;
 
 public class FeatureManager : MonoBehaviour
 {
     [Header("Feature Settings")]
     public List<FeatureSettings> featureSettings; // List of feature settings
+
+    [Header("Generation Settings")]
+    public TerrainGenerationSettings terrainSettings;
 
     [Header("Terrain References")]
     public Terrain terrain;
@@ -52,6 +56,9 @@ public class FeatureManager : MonoBehaviour
         float[,] heights = terrainData.GetHeights(0, 0, terrainData.heightmapResolution, terrainData.heightmapResolution);
         NativeArray<float> heightMap = FlattenHeightMap(heights);
 
+        // Generate biome indices
+        NativeArray<int> biomeIndices = GenerateBiomeIndices(heightMap);
+
         foreach (var feature in featureSettings)
         {
             if (!feature.enabled)
@@ -62,7 +69,7 @@ public class FeatureManager : MonoBehaviour
 
             NativeArray<int> placementMap = new NativeArray<int>(heightMap.Length, Allocator.TempJob);
 
-            var handle = SchedulePlacementJob(feature, heightMap, placementMap);
+            var handle = SchedulePlacementJob(feature, heightMap, placementMap, biomeIndices);
             handle.Complete();
 
             InstantiateFeatures(feature, placementMap);
@@ -71,7 +78,51 @@ public class FeatureManager : MonoBehaviour
         }
 
         heightMap.Dispose();
+        biomeIndices.Dispose();
     }
+
+    /// <summary>
+    /// Generates biome indices based on the heightmap.
+    /// </summary>
+    /// <param name="heightMap">NativeArray of terrain height values.</param>
+    /// <returns>A NativeArray containing biome indices for each point.</returns>
+    private NativeArray<int> GenerateBiomeIndices(NativeArray<float> heightMap)
+    {
+        int resolution = terrainData.heightmapResolution;
+        NativeArray<int> biomeIndices = new NativeArray<int>(resolution * resolution, Allocator.TempJob);
+
+        if (terrainSettings.biomes == null || terrainSettings.biomes.Length == 0)
+        {
+            Debug.LogWarning("No biomes defined in terrain settings. Returning default indices.");
+            return biomeIndices; // All indices will be initialized to their default value of 0.
+        }
+
+        for (int i = 0; i < biomeIndices.Length; i++)
+        {
+            float height = heightMap[i];
+            int biomeIndex = -1;
+
+            // Iterate through biomes and check their thresholds
+            for (int j = 0; j < terrainSettings.biomes.Length; j++)
+            {
+                var thresholds = terrainSettings.biomes[j].thresholds;
+
+                if ((height >= thresholds.minHeight1 && height <= thresholds.maxHeight1) ||
+                    (height >= thresholds.minHeight2 && height <= thresholds.maxHeight2) ||
+                    (height >= thresholds.minHeight3 && height <= thresholds.maxHeight3))
+                {
+                    biomeIndex = j;
+                    break; // Stop checking once a matching biome is found
+                }
+            }
+
+            // Assign the determined biome index (or -1 if no match was found)
+            biomeIndices[i] = biomeIndex;
+        }
+
+        return biomeIndices;
+    }
+
 
     /// <summary>
     /// Clears all instantiated features.
@@ -102,7 +153,7 @@ public class FeatureManager : MonoBehaviour
         }
     }
 
-    private JobHandle SchedulePlacementJob(FeatureSettings feature, NativeArray<float> heightMap, NativeArray<int> placementMap)
+    private JobHandle SchedulePlacementJob(FeatureSettings feature, NativeArray<float> heightMap, NativeArray<int> placementMap, NativeArray<int> biomeIndices)
     {
         var job = new FeaturePlacementJob
         {
@@ -112,12 +163,14 @@ public class FeatureManager : MonoBehaviour
             heightRange = feature.heightRange,
             slopeRange = feature.slopeRange,
             spawnProbability = feature.spawnProbability,
-            biomeIndex = feature.requiresBiome ? feature.biomeIndex : -1,
+            biomeIndex = feature.requiresBiome ? feature.biomeIndex : -1, // Check for required biome
+            biomeIndices = biomeIndices, // Pass biome indices
             random = new Unity.Mathematics.Random((uint)UnityEngine.Random.Range(1, int.MaxValue))
         };
 
         return job.Schedule(heightMap.Length, 64);
     }
+
 
     private void InstantiateFeatures(FeatureSettings feature, NativeArray<int> placementMap)
     {

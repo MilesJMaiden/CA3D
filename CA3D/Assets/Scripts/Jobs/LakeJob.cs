@@ -22,9 +22,10 @@ public struct LakeJob : IJobParallelFor
         float2 currentPoint = new float2(x, y);
         float distanceToCenter = math.distance(currentPoint, center);
 
-        if (distanceToCenter < lakeRadius)
+        if (distanceToCenter <= lakeRadius)
         {
-            heights[index] = math.min(heights[index], waterLevel); // Flatten below water level
+            // Only modify terrain within the lake radius
+            heights[index] = math.min(heights[index], waterLevel);
         }
     }
 }

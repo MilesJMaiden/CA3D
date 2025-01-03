@@ -31,38 +31,57 @@ MonoBehaviour:
   roughness: 2
   seed: 1234
   useVoronoiBiomes: 0
-  voronoiCellCount: 0
-  voronoiHeightRange: {x: 0, y: 0}
-  voronoiFalloffCurve:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 0
-      inSlope: 1
-      outSlope: 1
-      tangentMode: 34
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    - serializedVersion: 3
-      time: 1
-      value: 1
-      inSlope: 1
-      outSlope: 1
-      tangentMode: 34
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
-  voronoiDistributionMode: 0
-  customVoronoiPoints: []
+  voronoiCellCount: 4
   voronoiBlendFactor: 0.5
+  voronoiDistributionMode: 1
+  biomes:
+  - name: Desert
+    thresholds:
+      layer1: {fileID: 8574412962073106934, guid: 350cff24b308cb94fbcb0040ec708bc2, type: 2}
+      minHeight1: -0.05
+      maxHeight1: 0.3
+      layer2: {fileID: 8574412962073106934, guid: 65e4c298b4a506246b587631e47dd610, type: 2}
+      minHeight2: 0.275
+      maxHeight2: 0.6
+      layer3: {fileID: 8574412962073106934, guid: 42f80b93d46647248a57751d9be92221, type: 2}
+      minHeight3: 0.575
+      maxHeight3: 1
+  - name: Grassland
+    thresholds:
+      layer1: {fileID: 8574412962073106934, guid: 65e4c298b4a506246b587631e47dd610, type: 2}
+      minHeight1: -0.05
+      maxHeight1: 0.3
+      layer2: {fileID: 8574412962073106934, guid: a0e0246d9cb9f7942a0641f9781822cf, type: 2}
+      minHeight2: 0.275
+      maxHeight2: 0.6
+      layer3: {fileID: 8574412962073106934, guid: 42f80b93d46647248a57751d9be92221, type: 2}
+      minHeight3: 0.575
+      maxHeight3: 1
+  - name: Forest
+    thresholds:
+      layer1: {fileID: 8574412962073106934, guid: 65e4c298b4a506246b587631e47dd610, type: 2}
+      minHeight1: -0.05
+      maxHeight1: 0.3
+      layer2: {fileID: 8574412962073106934, guid: a0e0246d9cb9f7942a0641f9781822cf, type: 2}
+      minHeight2: 0.275
+      maxHeight2: 0.6
+      layer3: {fileID: 8574412962073106934, guid: 42f80b93d46647248a57751d9be92221, type: 2}
+      minHeight3: 0.575
+      maxHeight3: 1
+  - name: Mountain
+    thresholds:
+      layer1: {fileID: 8574412962073106934, guid: 65e4c298b4a506246b587631e47dd610, type: 2}
+      minHeight1: -0.5
+      maxHeight1: 0.3
+      layer2: {fileID: 8574412962073106934, guid: a0e0246d9cb9f7942a0641f9781822cf, type: 2}
+      minHeight2: 0.275
+      maxHeight2: 0.6
+      layer3: {fileID: 8574412962073106934, guid: 42f80b93d46647248a57751d9be92221, type: 2}
+      minHeight3: 0.575
+      maxHeight3: 1
   textureMappings:
   - terrainLayer: {fileID: 8574412962073106934, guid: a0e0246d9cb9f7942a0641f9781822cf, type: 2}
-    minHeight: 0
+    minHeight: -0.5
     maxHeight: 0.3
   - terrainLayer: {fileID: 8574412962073106934, guid: 42f80b93d46647248a57751d9be92221, type: 2}
     minHeight: 0.275
@@ -85,8 +104,6 @@ MonoBehaviour:
   useErosion: 0
   talusAngle: 0.1
   erosionIterations: 1
-  useFeatures: 1
-  globalSpawnProbability: 0.5
   featureSettings:
   - {fileID: 11400000, guid: b66a0285c310c8c42858d3ac2f67d460, type: 2}
   - {fileID: 11400000, guid: b53e939879698454694d596325500df3, type: 2}

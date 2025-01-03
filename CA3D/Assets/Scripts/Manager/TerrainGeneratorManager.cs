@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using Unity.Collections;
 using UnityEngine;
 
@@ -33,6 +35,8 @@ public class TerrainGeneratorManager : MonoBehaviour
     private ITerrainGenerator terrainGenerator;
     private Terrain m_Terrain;
     private TerrainData m_TerrainData;
+
+    private Dictionary<TerrainLayer, int> CachedLayerMappings;
 
     #endregion
 
@@ -70,52 +74,235 @@ public class TerrainGeneratorManager : MonoBehaviour
 
     #region Public Methods
 
-    /// <summary>
-    /// Generates the terrain using the current settings and updates the Unity terrain component.
-    /// </summary>
     public void GenerateTerrain()
     {
         ValidateAndAdjustDimensions();
         InitializeGenerator();
 
-        // Update terrain dimensions and resolution
-        m_TerrainData.heightmapResolution = width + 1;
-        m_TerrainData.size = new Vector3(width, height, length);
-
-        SyncTerrainLayersWithMappings();
-
-        // Generate the terrain heights
-        float[,] heights = terrainGenerator.GenerateHeights(width, length);
-
-        if (heights != null)
+        // Ensure biomes or fallback mappings exist
+        if (terrainSettings.useVoronoiBiomes)
         {
-            // Apply generated heights to the terrain
-            m_TerrainData.SetHeights(0, 0, heights);
-
-            // Apply textures or biomes if available
-            if (terrainGenerator is TerrainGenerator generator && generator.BiomeIndices.IsCreated)
+            if (terrainSettings.biomes == null || terrainSettings.biomes.Length == 0)
             {
-                ApplyTexturesWithBiomes(heights, generator.BiomeIndices, terrainSettings, width, length, m_TerrainData);
-                generator.BiomeIndices.Dispose();
-            }
-            else
-            {
-                ApplyTextures(heights, terrainSettings, width, length, m_TerrainData);
+                Debug.LogWarning("Biomes are not defined in settings. Adding default biomes.");
+                AddDefaultBiomes(terrainSettings);
             }
 
-            // Place features if the feature manager is enabled and features are toggled on
-            FeatureManager featureManager = GetComponent<FeatureManager>();
-            if (featureManager != null && featureManager.featuresEnabled)
-            {
-                featureManager.ClearFeatures();
-                featureManager.PlaceFeatures();
-            }
+            SyncTerrainLayersWithBiomes();
         }
         else
         {
-            Debug.LogError("Heights array is null. Terrain generation aborted.");
+            if (terrainSettings.textureMappings == null || terrainSettings.textureMappings.Length == 0)
+            {
+                Debug.LogWarning("Texture mappings are not defined in settings. Adding default texture mappings.");
+                AssignDefaultTextures();
+            }
+
+            SyncTerrainLayersWithMappings();
+        }
+
+        // Update terrain data dimensions
+        m_TerrainData.heightmapResolution = width + 1;
+        m_TerrainData.size = new Vector3(width, height, length);
+
+        // Initialize native arrays
+        NativeArray<float> heightsNative = default;
+        NativeArray<int> biomeIndices = default;
+        NativeArray<int> terrainLayerIndices = default;
+
+        try
+        {
+            // Generate terrain heights
+            float[,] heights = terrainGenerator.GenerateHeights(width, length);
+
+            if (heights != null)
+            {
+                m_TerrainData.SetHeights(0, 0, heights);
+
+                if (terrainSettings.useVoronoiBiomes)
+                {
+                    // Generate biome indices and terrain layer indices
+                    biomeIndices = GenerateBiomeIndices(heights);
+                    terrainLayerIndices = new NativeArray<int>(width * length, Allocator.TempJob);
+
+                    if (biomeIndices.IsCreated && terrainLayerIndices.IsCreated)
+                    {
+                        // Apply textures with biomes using the terrain data
+                        ApplyTexturesWithBiomes(heights, biomeIndices, terrainLayerIndices, terrainSettings, width, length, m_TerrainData);
+                    }
+                    else
+                    {
+                        Debug.LogError("Biome indices or terrain layer indices were not successfully created.");
+                    }
+                }
+                else
+                {
+                    // Apply fallback textures
+                    ApplyTextures(heights, terrainSettings, width, length, m_TerrainData);
+                }
+            }
+            else
+            {
+                Debug.LogError("Heights array is null. Terrain generation aborted.");
+            }
+        }
+        finally
+        {
+            // Dispose of native arrays if they were created
+            if (heightsNative.IsCreated) heightsNative.Dispose();
+            if (biomeIndices.IsCreated) biomeIndices.Dispose();
+            if (terrainLayerIndices.IsCreated) terrainLayerIndices.Dispose();
         }
     }
+
+    /// <summary>
+    /// Generates biome indices based on the heightmap.
+    /// </summary>
+    /// <param name="heights">The heightmap of the terrain.</param>
+    /// <returns>A NativeArray containing biome indices for each point.</returns>
+    private NativeArray<int> GenerateBiomeIndices(float[,] heights)
+    {
+        int resolution = heights.GetLength(0);
+        NativeArray<int> biomeIndices = new NativeArray<int>(resolution * resolution, Allocator.TempJob);
+
+        for (int x = 0; x < resolution; x++)
+        {
+            for (int y = 0; y < resolution; y++)
+            {
+                float height = heights[x, y];
+                biomeIndices[x + y * resolution] = DetermineBiomeIndex(height);
+            }
+        }
+
+        return biomeIndices;
+    }
+
+    /// <summary>
+    /// Determines the biome index based on a given height.
+    /// </summary>
+    /// <param name="height">The height value.</param>
+    /// <returns>The index of the biome.</returns>
+    private int DetermineBiomeIndex(float height)
+    {
+        if (terrainSettings.biomes == null || terrainSettings.biomes.Length == 0) return -1;
+
+        for (int i = 0; i < terrainSettings.biomes.Length; i++)
+        {
+            var thresholds = terrainSettings.biomes[i].thresholds;
+
+            if ((height >= thresholds.minHeight1 && height <= thresholds.maxHeight1) ||
+                (height >= thresholds.minHeight2 && height <= thresholds.maxHeight2) ||
+                (height >= thresholds.minHeight3 && height <= thresholds.maxHeight3))
+            {
+                return i;
+            }
+        }
+
+        return -1; // No matching biome found
+    }
+
+    /// <summary>
+    /// Synchronizes terrain layers with the defined biomes in the settings.
+    /// </summary>
+    private void SyncTerrainLayersWithBiomes()
+    {
+        if (terrainSettings.biomes == null || terrainSettings.biomes.Length == 0)
+        {
+            Debug.LogError("Biomes are null or empty. Cannot sync terrain layers.");
+            return;
+        }
+
+        var layers = new HashSet<TerrainLayer>();
+        foreach (var biome in terrainSettings.biomes)
+        {
+            layers.Add(biome.thresholds.layer1);
+            layers.Add(biome.thresholds.layer2);
+            layers.Add(biome.thresholds.layer3);
+        }
+
+        m_TerrainData.terrainLayers = layers.Where(layer => layer != null).ToArray();
+        CachedLayerMappings = CacheLayerMappings(m_TerrainData.terrainLayers);
+
+        Debug.Log($"Synchronized {m_TerrainData.terrainLayers.Length} terrain layers from biomes.");
+    }
+
+    private Dictionary<TerrainLayer, int> CacheLayerMappings(TerrainLayer[] layers)
+    {
+        var layerMapping = new Dictionary<TerrainLayer, int>();
+
+        for (int i = 0; i < layers.Length; i++)
+        {
+            if (!layerMapping.ContainsKey(layers[i]))
+                layerMapping[layers[i]] = i;
+        }
+
+        return layerMapping;
+    }
+
+
+    private void AddDefaultBiomes(TerrainGenerationSettings settings)
+    {
+        settings.biomes = new TerrainGenerationSettings.Biome[]
+        {
+        new TerrainGenerationSettings.Biome
+        {
+            name = "Grassland",
+            thresholds = new TerrainGenerationSettings.BiomeThresholds
+            {
+                layer1 = Resources.Load<TerrainLayer>("DefaultGrassLayer"),
+                minHeight1 = 0f,
+                maxHeight1 = 0.1f,
+
+                layer2 = Resources.Load<TerrainLayer>("DefaultGrassLayerDense"),
+                minHeight2 = 0.1f,
+                maxHeight2 = 0.2f,
+
+                layer3 = Resources.Load<TerrainLayer>("DefaultMeadowLayer"),
+                minHeight3 = 0.2f,
+                maxHeight3 = 0.3f,
+            }
+        },
+        new TerrainGenerationSettings.Biome
+        {
+            name = "Rocky",
+            thresholds = new TerrainGenerationSettings.BiomeThresholds
+            {
+                layer1 = Resources.Load<TerrainLayer>("DefaultRockLayer"),
+                minHeight1 = 0.3f,
+                maxHeight1 = 0.4f,
+
+                layer2 = Resources.Load<TerrainLayer>("DefaultRockLayerDense"),
+                minHeight2 = 0.4f,
+                maxHeight2 = 0.5f,
+
+                layer3 = Resources.Load<TerrainLayer>("DefaultCliffLayer"),
+                minHeight3 = 0.5f,
+                maxHeight3 = 0.6f,
+            }
+        },
+        new TerrainGenerationSettings.Biome
+        {
+            name = "Snow",
+            thresholds = new TerrainGenerationSettings.BiomeThresholds
+            {
+                layer1 = Resources.Load<TerrainLayer>("DefaultSnowLayer"),
+                minHeight1 = 0.6f,
+                maxHeight1 = 0.7f,
+
+                layer2 = Resources.Load<TerrainLayer>("DefaultSnowLayerDense"),
+                minHeight2 = 0.7f,
+                maxHeight2 = 0.8f,
+
+                layer3 = Resources.Load<TerrainLayer>("DefaultIceLayer"),
+                minHeight3 = 0.8f,
+                maxHeight3 = 1f,
+            }
+        }
+        };
+
+        Debug.Log("Default biomes added to settings with multiple thresholds.");
+    }
+
 
     private void AssignDefaultTextures()
     {
@@ -177,7 +364,6 @@ public class TerrainGeneratorManager : MonoBehaviour
         }
     }
 
-
     #endregion
 
     #region Private Methods
@@ -212,7 +398,6 @@ public class TerrainGeneratorManager : MonoBehaviour
         width = alphamapResolution;
         length = alphamapResolution;
     }
-
 
     /// <summary>
     /// Applies textures to the terrain using the provided settings and heightmap.
@@ -325,22 +510,6 @@ public class TerrainGeneratorManager : MonoBehaviour
             return false;
         }
 
-        if (terrainSettings.useVoronoiBiomes)
-        {
-            if (terrainSettings.voronoiFalloffCurve == null)
-            {
-                ReportError("Voronoi Falloff Curve is null. Assign a valid AnimationCurve.");
-                return false;
-            }
-
-            if (terrainSettings.voronoiDistributionMode == TerrainGenerationSettings.DistributionMode.Custom &&
-                (terrainSettings.customVoronoiPoints == null || terrainSettings.customVoronoiPoints.Count == 0))
-            {
-                ReportError("Custom Voronoi Points are null or empty.");
-                return false;
-            }
-        }
-
         terrainGenerator = new TerrainGenerator(terrainSettings);
         return true;
     }
@@ -412,10 +581,23 @@ public class TerrainGeneratorManager : MonoBehaviour
         }
 
         m_TerrainData.terrainLayers = layers.ToArray();
-        Debug.Log($"Synchronized terrain layers. Total layers: {m_TerrainData.terrainLayers.Length}");
+        Debug.Log($"Synchronized terrain layers from texture mappings. Total layers: {m_TerrainData.terrainLayers.Length}");
     }
 
-    private void ApplyTexturesWithBiomes(float[,] heights, NativeArray<int> biomeIndices, TerrainGenerationSettings settings, int width, int length, TerrainData terrainData)
+    /// <summary>
+    /// Applies textures to the terrain using Voronoi biomes.
+    /// </summary>
+    /// <summary>
+    /// Applies textures to the terrain using Voronoi biomes.
+    /// </summary>
+    private void ApplyTexturesWithBiomes(
+        float[,] heights,
+        NativeArray<int> biomeIndices,
+        NativeArray<int> terrainLayerIndices,
+        TerrainGenerationSettings settings,
+        int width,
+        int length,
+        TerrainData terrainData)
     {
         TerrainLayer[] layers = terrainData.terrainLayers;
 
@@ -425,13 +607,6 @@ public class TerrainGeneratorManager : MonoBehaviour
             return;
         }
 
-        if (settings.textureMappings == null || settings.textureMappings.Length != layers.Length)
-        {
-            Debug.LogWarning($"Mismatch between terrain layers ({layers.Length}) and texture mappings ({settings.textureMappings?.Length ?? 0}). Synchronizing layers...");
-            SyncTerrainLayersWithMappings();
-            layers = terrainData.terrainLayers; // Refresh layers after synchronization
-        }
-
         int layerCount = layers.Length;
         float[,,] splatmap = new float[width, length, layerCount];
 
@@ -439,35 +614,65 @@ public class TerrainGeneratorManager : MonoBehaviour
         {
             for (int y = 0; y < length; y++)
             {
+                int index = x + y * width;
+                int biomeIndex = biomeIndices[index];
                 float height = heights[x, y];
-                float slope = Mathf.Abs(terrainData.GetSteepness(x / (float)width, y / (float)length) / 90f);
-                int biomeIndex = biomeIndices[x + y * width];
 
-                for (int i = 0; i < layerCount; i++)
-                {
-                    var mapping = settings.textureMappings[i];
+                if (biomeIndex < 0 || biomeIndex >= settings.biomes.Length) continue;
 
-                    // Height-based blending
-                    float heightBlend = Mathf.InverseLerp(mapping.minHeight, mapping.maxHeight, height);
+                var thresholds = settings.biomes[biomeIndex].thresholds;
 
-                    // Slope influence
-                    float slopeBlend = Mathf.InverseLerp(0f, 1f, slope);
-
-                    // Biome-based blending
-                    float biomeBlend = (i == biomeIndex) ? 1f : 0.2f; // Stronger weight for matching biome
-
-                    // Final weight calculation
-                    splatmap[x, y, i] = heightBlend * (1f - slopeBlend) * biomeBlend;
-                }
+                // Assign weights for each layer based on thresholds
+                AssignLayerWeights(splatmap, x, y, layers, thresholds, height);
             }
         }
 
         NormalizeSplatmap(splatmap);
         terrainData.SetAlphamaps(0, 0, splatmap);
-        Debug.Log("Textures successfully applied with biomes and height blending.");
+        Debug.Log("Textures successfully applied with Voronoi biomes and blending.");
     }
 
+    private void AssignLayerWeights(
+        float[,,] splatmap,
+        int x,
+        int y,
+        TerrainLayer[] layers,
+        TerrainGenerationSettings.BiomeThresholds thresholds,
+        float height)
+    {
+        // Layer 1
+        if (height >= thresholds.minHeight1 && height <= thresholds.maxHeight1)
+        {
+            int layer1Index = Array.IndexOf(layers, thresholds.layer1);
+            float weight = CalculateWeight(height, thresholds.minHeight1, thresholds.maxHeight1);
+            if (layer1Index >= 0) splatmap[x, y, layer1Index] += weight;
+        }
 
+        // Layer 2
+        if (height >= thresholds.minHeight2 && height <= thresholds.maxHeight2)
+        {
+            int layer2Index = Array.IndexOf(layers, thresholds.layer2);
+            float weight = CalculateWeight(height, thresholds.minHeight2, thresholds.maxHeight2);
+            if (layer2Index >= 0) splatmap[x, y, layer2Index] += weight;
+        }
+
+        // Layer 3
+        if (height >= thresholds.minHeight3 && height <= thresholds.maxHeight3)
+        {
+            int layer3Index = Array.IndexOf(layers, thresholds.layer3);
+            float weight = CalculateWeight(height, thresholds.minHeight3, thresholds.maxHeight3);
+            if (layer3Index >= 0) splatmap[x, y, layer3Index] += weight;
+        }
+    }
+
+    private float CalculateWeight(float height, float minHeight, float maxHeight)
+    {
+        float range = maxHeight - minHeight;
+        float center = minHeight + range / 2f;
+
+        // Higher weight closer to the center of the range
+        return Mathf.Clamp01(1f - Mathf.Abs(height - center) / (range / 2f));
+    }
 
     #endregion
 }

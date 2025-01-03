@@ -9,6 +9,7 @@ public struct FeaturePlacementJob : IJobParallelFor
 {
     [ReadOnly] public NativeArray<float> heightMap;
     public NativeArray<int> placementMap;
+    public NativeArray<int> biomeIndices; // Biome indices for each point
     public int2 terrainSize;
 
     [ReadOnly] public Vector2 heightRange;
@@ -26,7 +27,10 @@ public struct FeaturePlacementJob : IJobParallelFor
         float currentHeight = heightMap[index];
         float slope = CalculateSlope(index);
 
-        if (currentHeight >= heightRange.x && currentHeight <= heightRange.y &&
+        bool biomeMatches = biomeIndex == -1 || biomeIndices[index] == biomeIndex;
+
+        if (biomeMatches &&
+            currentHeight >= heightRange.x && currentHeight <= heightRange.y &&
             slope >= slopeRange.x && slope <= slopeRange.y &&
             random.NextFloat(0f, 1f) <= spawnProbability)
         {
@@ -47,6 +51,6 @@ public struct FeaturePlacementJob : IJobParallelFor
         float dx = heightMap[right + y * terrainSize.x] - heightMap[left + y * terrainSize.x];
         float dy = heightMap[x + bottom * terrainSize.x] - heightMap[x + top * terrainSize.x];
 
-        return math.sqrt(dx * dx + dy * dy) * 100f; // Approximate slope in degrees
+        return math.sqrt(dx * dx + dy * dy) * 100f;
     }
 }

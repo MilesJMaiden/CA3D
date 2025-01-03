@@ -50,7 +50,6 @@ public class TerrainUIManager : MonoBehaviour
     public TMP_InputField voronoiHeightRangeMinField;
     public TMP_InputField voronoiHeightRangeMaxField;
     public TMP_Dropdown voronoiDistributionModeDropdown;
-    public TMP_InputField customVoronoiPointsField;
     public Toggle useVoronoiBiomesToggle;
 
     // Erosion
@@ -79,14 +78,6 @@ public class TerrainUIManager : MonoBehaviour
     public TMP_InputField lakeRadiusField;
     public TMP_InputField lakeWaterLevelField;
 
-    // Feature Placement
-    [Header("Feature Settings")]
-    public Toggle enableFeatureToggle; // Toggle for enabling/disabling features
-    public TMP_InputField featureSpawnProbabilityField; // InputField for feature spawn probability
-    public TMP_InputField featureHeightRangeMinField; // InputField for minimum height range
-    public TMP_InputField featureHeightRangeMaxField; // InputField for maximum height range
-    public TMP_Dropdown featureDefinitionsDropdown;
-
     [Header("Feature Toggles")]
     public GameObject featureToggleContainer; // A parent GameObject to hold all feature toggles
     public GameObject togglePrefab; // Prefab for individual feature toggles
@@ -114,7 +105,6 @@ public class TerrainUIManager : MonoBehaviour
         PopulateConfigDropdown();
         LoadDefaultValues();
         PopulateVoronoiDistributionDropdown();
-        PopulateFeatureDefinitionsDropdown();
         AddListeners();
     }
 
@@ -179,43 +169,6 @@ public class TerrainUIManager : MonoBehaviour
         Debug.Log("Voronoi distribution mode dropdown successfully populated.");
     }
 
-    private void PopulateFeatureDefinitionsDropdown()
-    {
-        if (featureDefinitionsDropdown == null)
-        {
-            Debug.LogError("FeatureDefinitionsDropdown reference is missing.");
-            return;
-        }
-
-        // Ensure currentSettings and featureSettings are not null
-        if (currentSettings == null || currentSettings.featureSettings == null)
-        {
-            Debug.LogWarning("No feature settings available in the current configuration.");
-            featureDefinitionsDropdown.ClearOptions();
-            featureDefinitionsDropdown.AddOptions(new List<string> { "No Features Available" });
-            featureDefinitionsDropdown.RefreshShownValue();
-            return;
-        }
-
-        // Extract feature names, or use a fallback if names are missing
-        var featureNames = currentSettings.featureSettings
-            .Select(f => !string.IsNullOrEmpty(f.featureName) ? f.featureName : "Unnamed Feature")
-            .ToList();
-
-        if (featureNames.Count == 0)
-        {
-            featureNames.Add("No Features Available");
-        }
-
-        // Update the dropdown with feature names
-        featureDefinitionsDropdown.ClearOptions();
-        featureDefinitionsDropdown.AddOptions(featureNames);
-        featureDefinitionsDropdown.RefreshShownValue();
-
-        Debug.Log($"FeatureDefinitionsDropdown populated with {featureNames.Count} items.");
-    }
-
-
     private void OnConfigDropdownChanged(int index)
     {
         // Validate index
@@ -230,53 +183,6 @@ public class TerrainUIManager : MonoBehaviour
 
         // Ensure that all relevant UI elements are updated to reflect the new configuration
         UpdateUIFieldsFromSettings(currentSettings);
-
-        // Update the feature definitions dropdown to match the new configuration
-        PopulateFeatureDefinitionsDropdown();
-
-        // Update the feature UI for the first feature in the list
-        if (currentSettings.featureSettings != null && currentSettings.featureSettings.Count > 0)
-            UpdateFeatureUI(currentSettings.featureSettings[0]);
-        else
-            ClearFeatureUI();
-
-        Debug.Log($"Terrain configuration updated: {availableConfigs[index].name}");
-    }
-
-    private void ClearFeatureUI()
-    {
-        enableFeatureToggle.isOn = false;
-        SetField(featureSpawnProbabilityField, "0");
-        SetField(featureHeightRangeMinField, "0");
-        SetField(featureHeightRangeMaxField, "0");
-    }
-
-    private void OnFeatureDropdownChanged(int index)
-    {
-        if (currentSettings?.featureSettings == null || index < 0 || index >= currentSettings.featureSettings.Count)
-        {
-            ClearFeatureUI();
-            Debug.LogWarning("Invalid feature index selected or no features available.");
-            return;
-        }
-
-        // Update the UI fields with the selected feature's data
-        FeatureSettings selectedFeature = currentSettings.featureSettings[index];
-        UpdateFeatureUI(selectedFeature);
-    }
-
-    private void UpdateFeatureUI(FeatureSettings feature)
-    {
-        if (feature == null)
-        {
-            ClearFeatureUI();
-            return;
-        }
-
-        enableFeatureToggle.isOn = feature.enabled;
-        SetField(featureSpawnProbabilityField, feature.spawnProbability.ToString());
-        SetField(featureHeightRangeMinField, feature.heightRange.x.ToString());
-        SetField(featureHeightRangeMaxField, feature.heightRange.y.ToString());
     }
 
     private void PopulateFeatureToggles()
@@ -317,22 +223,6 @@ public class TerrainUIManager : MonoBehaviour
             });
         }
     }
-
-
-    private void ToggleFeature(int featureIndex, bool isEnabled)
-    {
-        if (featureIndex < 0 || featureIndex >= currentSettings.featureSettings.Count) return;
-
-        FeatureSettings feature = currentSettings.featureSettings[featureIndex];
-        feature.enabled = isEnabled;
-
-        FeatureManager featureManager = terrainGeneratorManager.GetComponent<FeatureManager>();
-        if (featureManager != null)
-        {
-            featureManager.PlaceFeatures(); // Refresh feature placement
-        }
-    }
-
 
     /// <summary>
     /// Validates whether the provided index is within the range of available configurations.
@@ -412,18 +302,6 @@ public class TerrainUIManager : MonoBehaviour
         UpdateRiverFields(config);
         UpdateTrailFields(config);
         UpdateLakeFields(config);
-
-        // Populate and refresh feature dropdown and UI
-        PopulateFeatureDefinitionsDropdown();
-
-        if (config.featureSettings != null && config.featureSettings.Count > 0)
-        {
-            UpdateFeatureUI(config.featureSettings[0]); // Update to the first feature in the list
-        }
-        else
-        {
-            ClearFeatureUI(); // Clear feature UI if no features are present
-        }
     }
 
     /// <summary>
@@ -470,14 +348,32 @@ public class TerrainUIManager : MonoBehaviour
     /// </summary>
     private void UpdateVoronoiBiomesFields(TerrainGenerationSettings config)
     {
+        // Update the toggle field for using Voronoi biomes
         SetField(useVoronoiBiomesToggle, config.useVoronoiBiomes);
-        SetField(voronoiCellCountField, config.voronoiCellCount.ToString());
-        SetField(voronoiHeightRangeMinField, config.voronoiHeightRange.x.ToString());
-        SetField(voronoiHeightRangeMaxField, config.voronoiHeightRange.y.ToString());
 
+        // Update the Voronoi cell count field
+        SetField(voronoiCellCountField, config.voronoiCellCount.ToString());
+
+        // Ensure the height range values are updated
+        if (config.biomes != null && config.biomes.Length > 0)
+        {
+            // Assuming the height range is based on the first biome's thresholds
+            var thresholds = config.biomes[0].thresholds;
+            SetField(voronoiHeightRangeMinField, thresholds.minHeight1.ToString());
+            SetField(voronoiHeightRangeMaxField, thresholds.maxHeight3.ToString());
+        }
+        else
+        {
+            // Fallback values if no biomes are defined
+            SetField(voronoiHeightRangeMinField, "0.0");
+            SetField(voronoiHeightRangeMaxField, "1.0");
+        }
+
+        // Update the distribution mode dropdown
         voronoiDistributionModeDropdown.value = (int)config.voronoiDistributionMode;
-        customVoronoiPointsField.text = string.Join(";", config.customVoronoiPoints.Select(p => $"{p.x},{p.y}"));
+        voronoiDistributionModeDropdown.RefreshShownValue();
     }
+
 
     /// <summary>
     /// Updates UI fields related to Erosion settings.
@@ -557,53 +453,6 @@ public class TerrainUIManager : MonoBehaviour
         AddFieldListener(useRiversToggle, value => currentSettings.useRivers = value);
         AddFieldListener(useTrailsToggle, value => currentSettings.useTrails = value);
         AddFieldListener(useLakesToggle, value => currentSettings.useLakes = value);
-
-        AddFieldListener(enableFeatureToggle, value =>
-        {
-            if (currentSettings?.featureSettings == null || featureDefinitionsDropdown.value < 0) return;
-            currentSettings.featureSettings[featureDefinitionsDropdown.value].enabled = value;
-        });
-
-        AddValidatedFieldListener(featureSpawnProbabilityField, value =>
-        {
-            if (currentSettings?.featureSettings == null || featureDefinitionsDropdown.value < 0) return;
-            if (float.TryParse(value, out float probability))
-            {
-                currentSettings.featureSettings[featureDefinitionsDropdown.value].spawnProbability = Mathf.Clamp(probability, 0f, 1f);
-            }
-        }, 0f, 1f);
-
-        AddValidatedFieldListener(featureHeightRangeMinField, value =>
-        {
-            if (currentSettings?.featureSettings == null || featureDefinitionsDropdown.value < 0) return;
-            if (float.TryParse(value, out float minHeight))
-            {
-                currentSettings.featureSettings[featureDefinitionsDropdown.value].heightRange = new Vector2(minHeight, currentSettings.featureSettings[featureDefinitionsDropdown.value].heightRange.y);
-            }
-        }, 0f, 1f);
-
-        AddValidatedFieldListener(featureHeightRangeMaxField, value =>
-        {
-            if (currentSettings?.featureSettings == null || featureDefinitionsDropdown.value < 0) return;
-            if (float.TryParse(value, out float maxHeight))
-            {
-                currentSettings.featureSettings[featureDefinitionsDropdown.value].heightRange = new Vector2(currentSettings.featureSettings[featureDefinitionsDropdown.value].heightRange.x, maxHeight);
-            }
-        }, 0f, 1f);
-
-        featureDefinitionsDropdown.onValueChanged.AddListener(OnFeatureDropdownChanged);
-
-        AddFieldListener(enableFeatureToggle, value =>
-        {
-            if (terrainGeneratorManager != null)
-            {
-                FeatureManager featureManager = terrainGeneratorManager.GetComponent<FeatureManager>();
-                if (featureManager != null)
-                {
-                    featureManager.ToggleFeatures(value);
-                }
-            }
-        });
 
         Debug.Log("Listeners successfully added to all UI components.");
     }
@@ -742,42 +591,65 @@ public class TerrainUIManager : MonoBehaviour
     /// </summary>
     private void AddVoronoiBiomesListeners()
     {
+        // Listener for Voronoi cell count
         AddValidatedFieldListener(voronoiCellCountField, value =>
         {
-            currentSettings.voronoiCellCount = int.Parse(value);
+            if (int.TryParse(value, out int cellCount))
+            {
+                currentSettings.voronoiCellCount = Mathf.Clamp(cellCount, 1, 100);
+                RegenerateTerrain(); // Trigger terrain regeneration
+            }
+            else
+            {
+                DisplayError("Invalid input for Voronoi cell count. Must be an integer between 1 and 100.");
+            }
         }, 1, 100);
 
-        AddValidatedFieldListener(voronoiHeightRangeMinField, value =>
+        // Listeners for biome-specific height ranges
+        foreach (var biome in currentSettings.biomes)
         {
-            currentSettings.voronoiHeightRange.x = float.Parse(value);
-        }, 0f, 1f);
+            AddValidatedFieldListener(voronoiHeightRangeMinField, value =>
+            {
+                if (float.TryParse(value, out float minHeight))
+                {
+                    biome.thresholds.minHeight1 = Mathf.Clamp(minHeight, 0f, biome.thresholds.maxHeight1);
+                    RegenerateTerrain(); // Trigger terrain regeneration
+                }
+                else
+                {
+                    DisplayError($"Invalid input for minimum height of biome {biome.name}. Must be a float between 0 and 1.");
+                }
+            }, 0f, 1f);
 
-        AddValidatedFieldListener(voronoiHeightRangeMaxField, value =>
-        {
-            currentSettings.voronoiHeightRange.y = float.Parse(value);
-        }, 0f, 1f);
+            AddValidatedFieldListener(voronoiHeightRangeMaxField, value =>
+            {
+                if (float.TryParse(value, out float maxHeight))
+                {
+                    biome.thresholds.maxHeight1 = Mathf.Clamp(maxHeight, biome.thresholds.minHeight1, 1f);
+                    RegenerateTerrain(); // Trigger terrain regeneration
+                }
+                else
+                {
+                    DisplayError($"Invalid input for maximum height of biome {biome.name}. Must be a float between 0 and 1.");
+                }
+            }, 0f, 1f);
+        }
 
+        // Listener for distribution mode dropdown
         AddDropdownListener(voronoiDistributionModeDropdown, value =>
         {
-            currentSettings.voronoiDistributionMode = (TerrainGenerationSettings.DistributionMode)value;
-            ClearError();
-            RegenerateTerrain();
-        });
-
-        AddInputFieldListener(customVoronoiPointsField, value =>
-        {
-            try
+            if (System.Enum.IsDefined(typeof(TerrainGenerationSettings.DistributionMode), value))
             {
-                currentSettings.customVoronoiPoints = ParseCustomVoronoiPoints(value);
-                ClearError();
-                RegenerateTerrain();
+                currentSettings.voronoiDistributionMode = (TerrainGenerationSettings.DistributionMode)value;
+                RegenerateTerrain(); // Trigger terrain regeneration
             }
-            catch
+            else
             {
-                DisplayError("Invalid custom Voronoi points format. Use 'x1,y1;x2,y2' format.");
+                DisplayError("Invalid distribution mode selected for Voronoi biomes.");
             }
         });
     }
+
 
     /// <summary>
     /// Adds listeners for Erosion UI fields.
@@ -1235,10 +1107,39 @@ public class TerrainUIManager : MonoBehaviour
         // Voronoi Biomes Settings
         target.useVoronoiBiomes = source.useVoronoiBiomes;
         target.voronoiCellCount = source.voronoiCellCount;
-        target.voronoiHeightRange = source.voronoiHeightRange;
         target.voronoiDistributionMode = source.voronoiDistributionMode;
-        target.customVoronoiPoints = new List<Vector2>(source.customVoronoiPoints); // Deep copy of list
         target.voronoiBlendFactor = source.voronoiBlendFactor;
+
+        if (source.biomes != null)
+        {
+            target.biomes = new TerrainGenerationSettings.Biome[source.biomes.Length];
+            for (int i = 0; i < source.biomes.Length; i++)
+            {
+                target.biomes[i] = new TerrainGenerationSettings.Biome
+                {
+                    name = source.biomes[i].name,
+                    thresholds = new TerrainGenerationSettings.BiomeThresholds
+                    {
+                        layer1 = source.biomes[i].thresholds.layer1,
+                        minHeight1 = source.biomes[i].thresholds.minHeight1,
+                        maxHeight1 = source.biomes[i].thresholds.maxHeight1,
+
+                        layer2 = source.biomes[i].thresholds.layer2,
+                        minHeight2 = source.biomes[i].thresholds.minHeight2,
+                        maxHeight2 = source.biomes[i].thresholds.maxHeight2,
+
+                        layer3 = source.biomes[i].thresholds.layer3,
+                        minHeight3 = source.biomes[i].thresholds.minHeight3,
+                        maxHeight3 = source.biomes[i].thresholds.maxHeight3
+                    }
+                };
+            }
+        }
+        else
+        {
+            target.biomes = null;
+        }
+
 
         // Rivers
         target.useRivers = source.useRivers;
@@ -1264,8 +1165,6 @@ public class TerrainUIManager : MonoBehaviour
         target.erosionIterations = source.erosionIterations;
 
         //Features
-        target.useFeatures = source.useFeatures;
-        target.globalSpawnProbability = source.globalSpawnProbability;
         target.featureSettings = new List<FeatureSettings>(source.featureSettings);
 
         // Texture Mappings
