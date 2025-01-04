@@ -10,7 +10,6 @@ public struct VoronoiBiomeJob : IJobParallelFor
     [ReadOnly] public int length;
     [ReadOnly] public NativeArray<float2> voronoiPoints;
     [ReadOnly] public NativeArray<float3x3> biomeThresholds;
-    [ReadOnly] public float maxDistance;
 
     [WriteOnly] public NativeArray<int> biomeIndices;
     [WriteOnly] public NativeArray<int> terrainLayerIndices;
@@ -28,15 +27,15 @@ public struct VoronoiBiomeJob : IJobParallelFor
         float nearestWeight, secondNearestWeight;
         FindNearestBiomes(currentPoint, out nearestBiome, out secondNearestBiome, out nearestWeight, out secondNearestWeight);
 
-        // Validate indices before assignment
-        biomeIndices[index] = nearestBiome >= 0 ? nearestBiome : 0;
+        // Assign biome index
+        biomeIndices[index] = nearestBiome;
 
         // Blend terrain layers based on biome weights
         float height = heights[index];
         terrainLayerIndices[index] = DetermineBlendedLayer(
             height,
-            nearestBiome >= 0 ? biomeThresholds[nearestBiome] : new float3x3(),
-            secondNearestBiome >= 0 ? biomeThresholds[secondNearestBiome] : new float3x3(),
+            biomeThresholds[nearestBiome],
+            biomeThresholds[secondNearestBiome],
             nearestWeight,
             secondNearestWeight
         );
@@ -85,37 +84,43 @@ public struct VoronoiBiomeJob : IJobParallelFor
         float nearestWeight,
         float secondNearestWeight)
     {
-        float[] layerWeights = new float[3];
-        AccumulateLayerWeights(layerWeights, height, nearestThresholds, nearestWeight);
-        AccumulateLayerWeights(layerWeights, height, secondNearestThresholds, secondNearestWeight);
+        // Use float variables instead of an array to track weights
+        float weightLayer0 = 0f;
+        float weightLayer1 = 0f;
+        float weightLayer2 = 0f;
 
-        return FindDominantLayer(layerWeights);
+        // Accumulate weights for nearest biome
+        AccumulateLayerWeights(ref weightLayer0, ref weightLayer1, ref weightLayer2, height, nearestThresholds, nearestWeight);
+
+        // Accumulate weights for second-nearest biome
+        AccumulateLayerWeights(ref weightLayer0, ref weightLayer1, ref weightLayer2, height, secondNearestThresholds, secondNearestWeight);
+
+        // Determine dominant layer
+        return FindDominantLayer(weightLayer0, weightLayer1, weightLayer2);
     }
 
-    private void AccumulateLayerWeights(float[] layerWeights, float height, float3x3 thresholds, float biomeWeight)
+    private void AccumulateLayerWeights(
+        ref float weightLayer0,
+        ref float weightLayer1,
+        ref float weightLayer2,
+        float height,
+        float3x3 thresholds,
+        float biomeWeight)
     {
         if (height >= thresholds.c0.x && height <= thresholds.c0.y)
-            layerWeights[0] += biomeWeight;
+            weightLayer0 += biomeWeight;
         if (height >= thresholds.c1.x && height <= thresholds.c1.y)
-            layerWeights[1] += biomeWeight;
+            weightLayer1 += biomeWeight;
         if (height >= thresholds.c2.x && height <= thresholds.c2.y)
-            layerWeights[2] += biomeWeight;
+            weightLayer2 += biomeWeight;
     }
 
-    private int FindDominantLayer(float[] layerWeights)
+    private int FindDominantLayer(float weightLayer0, float weightLayer1, float weightLayer2)
     {
-        int dominantLayer = 0;
-        float maxWeight = float.MinValue;
-
-        for (int i = 0; i < layerWeights.Length; i++)
-        {
-            if (layerWeights[i] > maxWeight)
-            {
-                maxWeight = layerWeights[i];
-                dominantLayer = i;
-            }
-        }
-
-        return dominantLayer;
+        if (weightLayer0 >= weightLayer1 && weightLayer0 >= weightLayer2)
+            return 0;
+        if (weightLayer1 >= weightLayer0 && weightLayer1 >= weightLayer2)
+            return 1;
+        return 2;
     }
 }
