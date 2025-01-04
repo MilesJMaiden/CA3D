@@ -582,13 +582,8 @@ public class TerrainUIManager : MonoBehaviour
                 currentSettings.voronoiCellCount = Mathf.Clamp(cellCount, 1, currentSettings.biomes.Length);
                 RegenerateTerrain(); // Trigger terrain regeneration
             }
-            else
-            {
-                //DisplayError("Invalid input for Voronoi cell count. Must be an integer between 1 and the number of biomes.");
-            }
         }, 1, currentSettings.biomes.Length);
 
-        // Listener for distribution mode dropdown
         AddDropdownListener(voronoiDistributionModeDropdown, value =>
         {
             if (Enum.IsDefined(typeof(TerrainGenerationSettings.DistributionMode), value))
@@ -596,12 +591,7 @@ public class TerrainUIManager : MonoBehaviour
                 currentSettings.voronoiDistributionMode = (TerrainGenerationSettings.DistributionMode)value;
                 RegenerateTerrain(); // Trigger terrain regeneration
             }
-            else
-            {
-                DisplayError("Invalid distribution mode selected for Voronoi biomes.");
-            }
         });
-
     }
 
     /// <summary>

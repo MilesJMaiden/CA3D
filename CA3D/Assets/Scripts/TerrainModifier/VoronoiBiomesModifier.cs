@@ -3,19 +3,14 @@ using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
 
+/// <summary>
+/// Handles Voronoi biome generation and terrain height modification.
+/// </summary>
 public class VoronoiBiomesModifier : IHeightModifier
 {
     /// <summary>
-    /// Schedules a job to apply Voronoi biome modifications.
+    /// Schedules a Voronoi biome job to assign biome indices and terrain layers.
     /// </summary>
-    /// <param name="heights">NativeArray of terrain heights.</param>
-    /// <param name="biomeIndices">NativeArray to store biome indices.</param>
-    /// <param name="terrainLayerIndices">NativeArray to store terrain layer indices.</param>
-    /// <param name="width">The width of the terrain.</param>
-    /// <param name="length">The length of the terrain.</param>
-    /// <param name="settings">The terrain generation settings.</param>
-    /// <param name="dependency">JobHandle for dependencies.</param>
-    /// <returns>A JobHandle representing the scheduled job.</returns>
     public JobHandle ScheduleJob(
         NativeArray<float> heights,
         NativeArray<int> biomeIndices,
@@ -25,111 +20,106 @@ public class VoronoiBiomesModifier : IHeightModifier
         TerrainGenerationSettings settings,
         JobHandle dependency)
     {
-        if (settings.biomes == null || settings.biomes.Length == 0)
-        {
-            Debug.LogError("No biomes defined in settings. Cannot proceed with Voronoi biomes modification.");
-            return dependency;
-        }
+        ValidateSettings(settings);
 
-        // Generate Voronoi points and biome thresholds
+        // Generate Voronoi data
         NativeArray<float2> voronoiPoints = GenerateVoronoiPoints(settings, width, length);
         NativeArray<float3x3> biomeThresholds = GenerateBiomeThresholds(settings);
 
-        var job = new VoronoiBiomeJob
+        var voronoiBiomeJob = new VoronoiBiomeJob
         {
             width = width,
             length = length,
             voronoiPoints = voronoiPoints,
             biomeThresholds = biomeThresholds,
-            maxDistance = Mathf.Max(width, length),
+            maxDistance = math.sqrt(width * width + length * length),
             biomeIndices = biomeIndices,
             terrainLayerIndices = terrainLayerIndices,
             heights = heights
         };
 
-        // Schedule the job and dispose of temporary arrays after completion
-        JobHandle handle = job.Schedule(width * length, 64, dependency);
+        // Schedule the job and handle resource cleanup
+        JobHandle jobHandle = voronoiBiomeJob.Schedule(width * length, 64, dependency);
 
-        voronoiPoints.Dispose(handle);
-        biomeThresholds.Dispose(handle);
+        voronoiPoints.Dispose(jobHandle);
+        biomeThresholds.Dispose(jobHandle);
 
-        return handle;
+        return jobHandle;
     }
 
     /// <summary>
-    /// Generates Voronoi points for the terrain.
+    /// Generates Voronoi points based on the chosen distribution mode.
     /// </summary>
-    /// <param name="settings">The terrain generation settings.</param>
-    /// <param name="width">The width of the terrain.</param>
-    /// <param name="length">The length of the terrain.</param>
-    /// <returns>A NativeArray of Voronoi points.</returns>
     private NativeArray<float2> GenerateVoronoiPoints(TerrainGenerationSettings settings, int width, int length)
     {
-        // Clamp voronoiCellCount to the number of biomes
-        int cellCount = Mathf.Clamp(settings.voronoiCellCount, 1, settings.biomes.Length);
-
-        var points = new NativeArray<float2>(cellCount, Allocator.TempJob);
+        int cellCount = math.clamp(settings.voronoiCellCount, 1, settings.biomes.Length);
+        NativeArray<float2> points = new NativeArray<float2>(cellCount, Allocator.TempJob);
 
         switch (settings.voronoiDistributionMode)
         {
             case TerrainGenerationSettings.DistributionMode.Grid:
-                int cellsX = (int)Mathf.Sqrt(cellCount);
-                int cellsY = cellsX;
-
-                for (int i = 0; i < cellCount; i++)
-                {
-                    int x = i % cellsX;
-                    int y = i / cellsX;
-                    points[i] = new float2(
-                        (x + 0.5f) * (width / (float)cellsX),
-                        (y + 0.5f) * (length / (float)cellsY)
-                    );
-                }
+                GenerateGridPoints(points, cellCount, width, length);
                 break;
 
             case TerrainGenerationSettings.DistributionMode.Random:
-                Unity.Mathematics.Random random = new Unity.Mathematics.Random((uint)settings.randomSeed);
-                for (int i = 0; i < cellCount; i++)
-                {
-                    points[i] = new float2(random.NextFloat(0, width), random.NextFloat(0, length));
-                }
-                break;
-
-            case TerrainGenerationSettings.DistributionMode.Custom:
-                if (settings.biomes.Length != settings.voronoiCellCount)
-                {
-                    Debug.LogWarning($"Custom mode expects {settings.biomes.Length} cells, but got {settings.voronoiCellCount}. Adjusting.");
-                }
-
-                for (int i = 0; i < cellCount; i++)
-                {
-                    float normalizedX = (i / (float)cellCount) * width;
-                    float normalizedY = (i % cellCount) * length;
-                    points[i] = new float2(normalizedX, normalizedY);
-                }
+                GenerateRandomPoints(points, cellCount, width, length, settings.randomSeed);
                 break;
 
             default:
-                Debug.LogError("Unsupported Voronoi distribution mode.");
-                break;
+                throw new System.NotSupportedException($"Unsupported Voronoi distribution mode: {settings.voronoiDistributionMode}");
         }
 
+        Debug.Log($"Generated {cellCount} Voronoi points using {settings.voronoiDistributionMode} mode.");
         return points;
     }
 
+    /// <summary>
+    /// Generates Voronoi points in a grid distribution.
+    /// </summary>
+    private void GenerateGridPoints(NativeArray<float2> points, int cellCount, int width, int length)
+    {
+        int cellsX = math.ceilpow2((int)math.sqrt(cellCount));
+        int cellsY = math.ceilpow2((int)math.ceil((float)cellCount / cellsX));
+
+        for (int i = 0; i < cellCount; i++)
+        {
+            int x = i % cellsX;
+            int y = i / cellsX;
+
+            points[i] = new float2(
+                (x + 0.5f) * (width / (float)cellsX),
+                (y + 0.5f) * (length / (float)cellsY)
+            );
+        }
+    }
 
     /// <summary>
-    /// Generates biome thresholds for terrain layers.
+    /// Generates Voronoi points in a random distribution.
     /// </summary>
-    /// <param name="settings">The terrain generation settings.</param>
-    /// <returns>A NativeArray of biome thresholds.</returns>
+    private void GenerateRandomPoints(NativeArray<float2> points, int cellCount, int width, int length, int randomSeed)
+    {
+        var random = new Unity.Mathematics.Random((uint)randomSeed);
+
+        for (int i = 0; i < cellCount; i++)
+        {
+            points[i] = new float2(
+                random.NextFloat(0, width),
+                random.NextFloat(0, length)
+            );
+        }
+    }
+
+    /// <summary>
+    /// Generates biome thresholds for the terrain layers.
+    /// </summary>
     private NativeArray<float3x3> GenerateBiomeThresholds(TerrainGenerationSettings settings)
     {
-        var thresholds = new NativeArray<float3x3>(settings.biomes.Length, Allocator.TempJob);
+        NativeArray<float3x3> thresholds = new NativeArray<float3x3>(settings.biomes.Length, Allocator.TempJob);
 
         for (int i = 0; i < settings.biomes.Length; i++)
         {
             var biome = settings.biomes[i];
+
             thresholds[i] = new float3x3(
                 new float3(biome.thresholds.minHeight1, biome.thresholds.maxHeight1, 0),
                 new float3(biome.thresholds.minHeight2, biome.thresholds.maxHeight2, 0),
@@ -137,9 +127,29 @@ public class VoronoiBiomesModifier : IHeightModifier
             );
         }
 
+        Debug.Log($"Generated thresholds for {settings.biomes.Length} biomes.");
         return thresholds;
     }
 
+    /// <summary>
+    /// Validates that the settings are configured correctly for Voronoi biome generation.
+    /// </summary>
+    private void ValidateSettings(TerrainGenerationSettings settings)
+    {
+        if (settings.biomes == null || settings.biomes.Length == 0)
+        {
+            throw new System.ArgumentException("No biomes defined in settings. Ensure that the biomes are populated.");
+        }
+
+        if (settings.voronoiCellCount <= 0)
+        {
+            throw new System.ArgumentException("Voronoi cell count must be greater than 0.");
+        }
+    }
+
+    /// <summary>
+    /// Modifies the terrain heights and applies Voronoi-based biome layers.
+    /// </summary>
     public void ModifyHeight(float[,] heights, TerrainGenerationSettings settings)
     {
         int width = heights.GetLength(0);
@@ -149,21 +159,26 @@ public class VoronoiBiomesModifier : IHeightModifier
         NativeArray<int> biomeIndices = new NativeArray<int>(width * length, Allocator.TempJob);
         NativeArray<int> terrainLayerIndices = new NativeArray<int>(width * length, Allocator.TempJob);
 
-        // Flatten 2D heights array into a NativeArray
-        for (int x = 0; x < width; x++)
+        try
         {
-            for (int y = 0; y < length; y++)
+            // Flatten 2D heights into a NativeArray
+            for (int x = 0; x < width; x++)
             {
-                heightsNative[x + y * width] = heights[x, y];
+                for (int y = 0; y < length; y++)
+                {
+                    heightsNative[x + y * width] = heights[x, y];
+                }
             }
+
+            // Schedule and complete the job
+            ScheduleJob(heightsNative, biomeIndices, terrainLayerIndices, width, length, settings, default).Complete();
         }
-
-        // Schedule and execute the job
-        ScheduleJob(heightsNative, biomeIndices, terrainLayerIndices, width, length, settings, default).Complete();
-
-        // Dispose NativeArrays
-        heightsNative.Dispose();
-        biomeIndices.Dispose();
-        terrainLayerIndices.Dispose();
+        finally
+        {
+            // Dispose of allocated memory
+            heightsNative.Dispose();
+            biomeIndices.Dispose();
+            terrainLayerIndices.Dispose();
+        }
     }
 }
