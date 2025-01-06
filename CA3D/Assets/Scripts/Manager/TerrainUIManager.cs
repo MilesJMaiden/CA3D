@@ -1,3 +1,4 @@
+// TerrainUIManager.cs
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -8,6 +9,7 @@ using System;
 /// <summary>
 /// Manages the UI for adjusting terrain generation settings and regenerates the terrain dynamically
 /// whenever valid inputs are modified.
+/// Also provides controls for adjusting feature placement parameters (e.g., CA Iterations, Neighbor Threshold).
 /// </summary>
 public class TerrainUIManager : MonoBehaviour
 {
@@ -78,9 +80,19 @@ public class TerrainUIManager : MonoBehaviour
     public TMP_InputField lakeWaterLevelField;
 
     [Header("Feature Toggles")]
-    public GameObject featureToggleContainer; // A parent GameObject to hold all feature toggles
-    public GameObject togglePrefab; // Prefab for individual feature toggles
+    public GameObject featureToggleContainer;
+    public GameObject togglePrefab;
     private List<Toggle> featureToggles = new List<Toggle>();
+
+    [Header("Feature Placement Controls")]
+    [Tooltip("Number of iterations for the Cellular Automata pass on features.")]
+    public TMP_InputField featureCAIterationsField;
+
+    [Tooltip("Neighbor threshold for Cellular Automata pass.")]
+    public TMP_InputField featureNeighborThresholdField;
+
+    [Tooltip("Global multiplier for spawn probability (applies to all features).")]
+    public TMP_InputField globalFeatureDensityField;
 
     public TMP_Text errorMessage;
 
@@ -99,6 +111,7 @@ public class TerrainUIManager : MonoBehaviour
     #endregion
 
     #region Unity Methods
+
     private void Start()
     {
         PopulateConfigDropdown();
@@ -111,9 +124,6 @@ public class TerrainUIManager : MonoBehaviour
 
     #region Configuration Management
 
-    /// <summary>
-    /// Populates the configuration dropdown with available terrain generation settings.
-    /// </summary>
     private void PopulateConfigDropdown()
     {
         if (configDropdown == null)
@@ -138,9 +148,6 @@ public class TerrainUIManager : MonoBehaviour
         configDropdown.onValueChanged.AddListener(OnConfigDropdownChanged);
     }
 
-    /// <summary>
-    /// Populates the Voronoi distribution mode dropdown with available options.
-    /// </summary>
     private void PopulateVoronoiDistributionDropdown()
     {
         if (voronoiDistributionModeDropdown == null)
@@ -149,19 +156,16 @@ public class TerrainUIManager : MonoBehaviour
             return;
         }
 
-        // Fetch the enum names for distribution modes
-        var distributionModes = System.Enum.GetNames(typeof(DistributionMode)).ToList();
+        var distributionModes = Enum.GetNames(typeof(DistributionMode)).ToList();
         if (distributionModes == null || distributionModes.Count == 0)
         {
             Debug.LogWarning("No distribution modes found to populate the dropdown.");
             return;
         }
 
-        // Clear existing options and populate dropdown
         voronoiDistributionModeDropdown.ClearOptions();
         voronoiDistributionModeDropdown.AddOptions(distributionModes);
 
-        // Set default selection
         voronoiDistributionModeDropdown.value = 0;
         voronoiDistributionModeDropdown.RefreshShownValue();
 
@@ -170,17 +174,13 @@ public class TerrainUIManager : MonoBehaviour
 
     private void OnConfigDropdownChanged(int index)
     {
-        // Validate index
         if (!IsValidConfigIndex(index))
         {
             DisplayError($"Invalid configuration index selected: {index}");
             return;
         }
 
-        // Load values from the selected configuration
         LoadValuesFromConfig(availableConfigs[index]);
-
-        // Ensure that all relevant UI elements are updated to reflect the new configuration
         UpdateUIFieldsFromSettings(currentSettings);
     }
 
@@ -192,13 +192,13 @@ public class TerrainUIManager : MonoBehaviour
             return;
         }
 
-        // Clear existing toggles
         foreach (Transform child in featureToggleContainer.transform)
         {
             Destroy(child.gameObject);
         }
 
-        // Create a toggle for each feature
+        if (currentSettings.featureSettings == null) return;
+
         foreach (var feature in currentSettings.featureSettings)
         {
             GameObject toggleObj = Instantiate(togglePrefab, featureToggleContainer.transform);
@@ -214,28 +214,17 @@ public class TerrainUIManager : MonoBehaviour
             toggle.onValueChanged.AddListener(value =>
             {
                 feature.enabled = value;
-                FeatureManager featureManager = FindObjectOfType<FeatureManager>();
-                if (featureManager != null)
-                {
-                    featureManager.PlaceFeatures(); // Refresh features
-                }
+                // Force a terrain regeneration to refresh features
+                RegenerateTerrain();
             });
         }
     }
 
-    /// <summary>
-    /// Validates whether the provided index is within the range of available configurations.
-    /// </summary>
-    /// <param name="index">The index to validate.</param>
-    /// <returns>True if valid; otherwise, false.</returns>
     private bool IsValidConfigIndex(int index)
     {
         return index >= 0 && index < availableConfigs.Length;
     }
 
-    /// <summary>
-    /// Loads the default configuration from the available configurations.
-    /// </summary>
     private void LoadDefaultValues()
     {
         if (!HasAvailableConfigs())
@@ -249,39 +238,22 @@ public class TerrainUIManager : MonoBehaviour
         LoadValuesFromConfig(availableConfigs[0]);
     }
 
-    /// <summary>
-    /// Checks if there are available configurations.
-    /// </summary>
-    /// <returns>True if configurations are available; otherwise, false.</returns>
     private bool HasAvailableConfigs()
     {
         return availableConfigs != null && availableConfigs.Length > 0;
     }
 
-
-    /// <summary>
-    /// Loads values from the specified configuration and updates the current settings and UI fields.
-    /// </summary>
-    /// <param name="config">The configuration to load values from.</param>
     private void LoadValuesFromConfig(TerrainGenerationSettings config)
     {
-        if (config == null)
-        {
-            //DisplayError("Provided configuration is null.");
-            return;
-        }
+        if (config == null) return;
 
         currentSettings = ScriptableObject.CreateInstance<TerrainGenerationSettings>();
         CopySettings(config, currentSettings);
 
         UpdateUIFieldsFromSettings(config);
-        PopulateFeatureToggles(); // Dynamically create toggles
+        PopulateFeatureToggles();
     }
 
-    /// <summary>
-    /// Updates all UI fields to reflect the provided configuration settings.
-    /// </summary>
-    /// <param name="config">The configuration whose settings will populate the UI fields.</param>
     private void UpdateUIFieldsFromSettings(TerrainGenerationSettings config)
     {
         if (config == null)
@@ -292,7 +264,6 @@ public class TerrainUIManager : MonoBehaviour
 
         Debug.Log("Updating UI fields to reflect current configuration...");
 
-        // Update general terrain settings
         UpdatePerlinNoiseFields(config);
         UpdateFractalBrownianMotionFields(config);
         UpdateMidpointDisplacementFields(config);
@@ -301,11 +272,24 @@ public class TerrainUIManager : MonoBehaviour
         UpdateRiverFields(config);
         UpdateTrailFields(config);
         UpdateLakeFields(config);
+
+        // For feature-specific fields (Cellular Automata, etc.), 
+        // we show them with default or user-defined values.
+        // Suppose we store them in "currentSettings" to keep it consistent.
+        if (featureCAIterationsField)
+        {
+            featureCAIterationsField.text = currentSettings.featureCAIterations.ToString();
+        }
+        if (featureNeighborThresholdField)
+        {
+            featureNeighborThresholdField.text = currentSettings.featureNeighborThreshold.ToString();
+        }
+        if (globalFeatureDensityField)
+        {
+            globalFeatureDensityField.text = currentSettings.globalFeatureDensity.ToString("F2");
+        }
     }
 
-    /// <summary>
-    /// Updates UI fields related to Perlin Noise settings.
-    /// </summary>
     private void UpdatePerlinNoiseFields(TerrainGenerationSettings config)
     {
         SetField(usePerlinNoiseToggle, config.usePerlinNoise);
@@ -317,9 +301,6 @@ public class TerrainUIManager : MonoBehaviour
         SetField(perlinOffsetYField, config.perlinOffset.y.ToString());
     }
 
-    /// <summary>
-    /// Updates UI fields related to Fractal Brownian Motion settings.
-    /// </summary>
     private void UpdateFractalBrownianMotionFields(TerrainGenerationSettings config)
     {
         SetField(useFractalBrownianMotionToggle, config.useFractalBrownianMotion);
@@ -331,9 +312,6 @@ public class TerrainUIManager : MonoBehaviour
         SetField(fBmOffsetYField, config.fBmOffset.y.ToString());
     }
 
-    /// <summary>
-    /// Updates UI fields related to Midpoint Displacement settings.
-    /// </summary>
     private void UpdateMidpointDisplacementFields(TerrainGenerationSettings config)
     {
         SetField(useMidPointDisplacementToggle, config.useMidPointDisplacement);
@@ -342,26 +320,15 @@ public class TerrainUIManager : MonoBehaviour
         SetField(randomSeedField, config.randomSeed.ToString());
     }
 
-    /// <summary>
-    /// Updates UI fields related to Voronoi Biomes settings.
-    /// </summary>
     private void UpdateVoronoiBiomesFields(TerrainGenerationSettings config)
     {
-        // Update the toggle field for using Voronoi biomes
         SetField(useVoronoiBiomesToggle, config.useVoronoiBiomes);
-
-        // Update the Voronoi cell count field
         SetField(voronoiCellCountField, config.voronoiCellCount.ToString());
 
-        // Update the distribution mode dropdown
         voronoiDistributionModeDropdown.value = (int)config.voronoiDistributionMode;
         voronoiDistributionModeDropdown.RefreshShownValue();
     }
 
-
-    /// <summary>
-    /// Updates UI fields related to Erosion settings.
-    /// </summary>
     private void UpdateErosionFields(TerrainGenerationSettings config)
     {
         SetField(useErosionToggle, config.useErosion);
@@ -369,9 +336,6 @@ public class TerrainUIManager : MonoBehaviour
         SetField(erosionIterationsField, config.erosionIterations.ToString());
     }
 
-    /// <summary>
-    /// Updates UI fields related to River settings.
-    /// </summary>
     private void UpdateRiverFields(TerrainGenerationSettings config)
     {
         SetField(useRiversToggle, config.useRivers);
@@ -379,9 +343,6 @@ public class TerrainUIManager : MonoBehaviour
         SetField(riverHeightField, config.riverHeight.ToString());
     }
 
-    /// <summary>
-    /// Updates UI fields related to Trail settings.
-    /// </summary>
     private void UpdateTrailFields(TerrainGenerationSettings config)
     {
         SetField(useTrailsToggle, config.useTrails);
@@ -393,9 +354,6 @@ public class TerrainUIManager : MonoBehaviour
         SetField(trailRandomnessField, config.trailRandomness.ToString());
     }
 
-    /// <summary>
-    /// Updates UI fields related to Lake settings.
-    /// </summary>
     private void UpdateLakeFields(TerrainGenerationSettings config)
     {
         SetField(useLakesToggle, config.useLakes);
@@ -405,20 +363,14 @@ public class TerrainUIManager : MonoBehaviour
         SetField(lakeWaterLevelField, config.lakeWaterLevel.ToString());
     }
 
-
     #endregion
 
     #region Input Field Validation
 
-    /// <summary>
-    /// Adds listeners to all UI input fields and toggles to dynamically update terrain settings.
-    /// Ensures terrain regeneration on any toggle change.
-    /// </summary>
     private void AddListeners()
     {
         Debug.Log("Adding listeners to all UI components...");
 
-        // Add listeners for each category of settings
         AddPerlinNoiseListeners();
         AddFractalBrownianMotionListeners();
         AddMidpointDisplacementListeners();
@@ -428,7 +380,56 @@ public class TerrainUIManager : MonoBehaviour
         AddTrailListeners();
         AddLakeListeners();
 
-        // Add listeners for all toggles to ensure terrain updates
+        // Feature-related new listeners
+        if (featureCAIterationsField)
+        {
+            featureCAIterationsField.onEndEdit.AddListener(value =>
+            {
+                if (int.TryParse(value, out int iters) && iters >= 0)
+                {
+                    currentSettings.featureCAIterations = iters;
+                    RegenerateTerrain();
+                }
+                else
+                {
+                    DisplayError($"Invalid CA Iterations: {value}");
+                }
+            });
+        }
+
+        if (featureNeighborThresholdField)
+        {
+            featureNeighborThresholdField.onEndEdit.AddListener(value =>
+            {
+                if (int.TryParse(value, out int thresh) && thresh >= 0)
+                {
+                    currentSettings.featureNeighborThreshold = thresh;
+                    RegenerateTerrain();
+                }
+                else
+                {
+                    DisplayError($"Invalid neighbor threshold: {value}");
+                }
+            });
+        }
+
+        if (globalFeatureDensityField)
+        {
+            globalFeatureDensityField.onEndEdit.AddListener(value =>
+            {
+                if (float.TryParse(value, out float density) && density >= 0f)
+                {
+                    currentSettings.globalFeatureDensity = density;
+                    RegenerateTerrain();
+                }
+                else
+                {
+                    DisplayError($"Invalid global feature density: {value}");
+                }
+            });
+        }
+
+        // Toggles
         AddFieldListener(usePerlinNoiseToggle, value => currentSettings.usePerlinNoise = value);
         AddFieldListener(useFractalBrownianMotionToggle, value => currentSettings.useFractalBrownianMotion = value);
         AddFieldListener(useMidPointDisplacementToggle, value => currentSettings.useMidPointDisplacement = value);
@@ -441,34 +442,31 @@ public class TerrainUIManager : MonoBehaviour
         Debug.Log("Listeners successfully added to all UI components.");
     }
 
-    /// <summary>
-    /// Adds listeners for Perlin Noise UI fields.
-    /// </summary>
     private void AddPerlinNoiseListeners()
     {
-        AddValidatedFieldListener(perlinLayersField, value =>
+        AddValidatedFieldListener(perlinLayersField, val =>
         {
-            currentSettings.perlinLayers = int.Parse(value);
+            currentSettings.perlinLayers = int.Parse(val);
         }, 1, 100);
 
-        AddValidatedFieldListener(perlinBaseScaleField, value =>
+        AddValidatedFieldListener(perlinBaseScaleField, val =>
         {
-            currentSettings.perlinBaseScale = float.Parse(value);
+            currentSettings.perlinBaseScale = float.Parse(val);
         }, 0.1f, 500f);
 
-        AddValidatedFieldListener(perlinAmplitudeDecayField, value =>
+        AddValidatedFieldListener(perlinAmplitudeDecayField, val =>
         {
-            currentSettings.perlinAmplitudeDecay = float.Parse(value);
+            currentSettings.perlinAmplitudeDecay = float.Parse(val);
         }, 0f, 1f);
 
-        AddValidatedFieldListener(perlinFrequencyGrowthField, value =>
+        AddValidatedFieldListener(perlinFrequencyGrowthField, val =>
         {
-            currentSettings.perlinFrequencyGrowth = float.Parse(value);
+            currentSettings.perlinFrequencyGrowth = float.Parse(val);
         }, 0.1f, 10f);
 
-        AddInputFieldListener(perlinOffsetXField, value =>
+        AddInputFieldListener(perlinOffsetXField, val =>
         {
-            if (float.TryParse(value, out float offsetX))
+            if (float.TryParse(val, out float offsetX))
             {
                 currentSettings.perlinOffset = new Vector2(offsetX, currentSettings.perlinOffset.y);
                 ClearError();
@@ -480,9 +478,9 @@ public class TerrainUIManager : MonoBehaviour
             }
         });
 
-        AddInputFieldListener(perlinOffsetYField, value =>
+        AddInputFieldListener(perlinOffsetYField, val =>
         {
-            if (float.TryParse(value, out float offsetY))
+            if (float.TryParse(val, out float offsetY))
             {
                 currentSettings.perlinOffset = new Vector2(currentSettings.perlinOffset.x, offsetY);
                 ClearError();
@@ -495,34 +493,31 @@ public class TerrainUIManager : MonoBehaviour
         });
     }
 
-    /// <summary>
-    /// Adds listeners for Fractal Brownian Motion UI fields.
-    /// </summary>
     private void AddFractalBrownianMotionListeners()
     {
-        AddValidatedFieldListener(fBmLayersField, value =>
+        AddValidatedFieldListener(fBmLayersField, val =>
         {
-            currentSettings.fBmLayers = int.Parse(value);
+            currentSettings.fBmLayers = int.Parse(val);
         }, 1, 100);
 
-        AddValidatedFieldListener(fBmBaseScaleField, value =>
+        AddValidatedFieldListener(fBmBaseScaleField, val =>
         {
-            currentSettings.fBmBaseScale = float.Parse(value);
+            currentSettings.fBmBaseScale = float.Parse(val);
         }, 0.1f, 500f);
 
-        AddValidatedFieldListener(fBmAmplitudeDecayField, value =>
+        AddValidatedFieldListener(fBmAmplitudeDecayField, val =>
         {
-            currentSettings.fBmAmplitudeDecay = float.Parse(value);
+            currentSettings.fBmAmplitudeDecay = float.Parse(val);
         }, 0f, 1f);
 
-        AddValidatedFieldListener(fBmFrequencyGrowthField, value =>
+        AddValidatedFieldListener(fBmFrequencyGrowthField, val =>
         {
-            currentSettings.fBmFrequencyGrowth = float.Parse(value);
+            currentSettings.fBmFrequencyGrowth = float.Parse(val);
         }, 0.1f, 10f);
 
-        AddInputFieldListener(fBmOffsetXField, value =>
+        AddInputFieldListener(fBmOffsetXField, val =>
         {
-            if (float.TryParse(value, out float offsetX))
+            if (float.TryParse(val, out float offsetX))
             {
                 currentSettings.fBmOffset = new Vector2(offsetX, currentSettings.fBmOffset.y);
                 ClearError();
@@ -534,9 +529,9 @@ public class TerrainUIManager : MonoBehaviour
             }
         });
 
-        AddInputFieldListener(fBmOffsetYField, value =>
+        AddInputFieldListener(fBmOffsetYField, val =>
         {
-            if (float.TryParse(value, out float offsetY))
+            if (float.TryParse(val, out float offsetY))
             {
                 currentSettings.fBmOffset = new Vector2(currentSettings.fBmOffset.x, offsetY);
                 ClearError();
@@ -549,182 +544,157 @@ public class TerrainUIManager : MonoBehaviour
         });
     }
 
-    /// <summary>
-    /// Adds listeners for Midpoint Displacement UI fields.
-    /// </summary>
     private void AddMidpointDisplacementListeners()
     {
-        AddValidatedFieldListener(displacementFactorField, value =>
+        AddValidatedFieldListener(displacementFactorField, val =>
         {
-            currentSettings.displacementFactor = float.Parse(value);
+            currentSettings.displacementFactor = float.Parse(val);
         }, 0.1f, 10f);
 
-        AddValidatedFieldListener(displacementDecayRateField, value =>
+        AddValidatedFieldListener(displacementDecayRateField, val =>
         {
-            currentSettings.displacementDecayRate = float.Parse(value);
+            currentSettings.displacementDecayRate = float.Parse(val);
         }, 0f, 1f);
 
-        AddValidatedFieldListener(randomSeedField, value =>
+        AddValidatedFieldListener(randomSeedField, val =>
         {
-            currentSettings.randomSeed = int.Parse(value);
+            currentSettings.randomSeed = int.Parse(val);
         }, 0, 10000);
     }
 
-    /// <summary>
-    /// Adds listeners for Voronoi Biomes UI fields.
-    /// </summary>
     private void AddVoronoiBiomesListeners()
     {
-        AddValidatedFieldListener(voronoiCellCountField, value =>
+        AddValidatedFieldListener(voronoiCellCountField, val =>
         {
-            if (int.TryParse(value, out int cellCount))
+            if (int.TryParse(val, out int cellCount))
             {
                 currentSettings.voronoiCellCount = Mathf.Clamp(cellCount, 1, currentSettings.biomes.Length);
-                RegenerateTerrain(); // Trigger terrain regeneration
+                RegenerateTerrain();
             }
         }, 1, currentSettings.biomes.Length);
 
-        AddDropdownListener(voronoiDistributionModeDropdown, value =>
+        AddDropdownListener(voronoiDistributionModeDropdown, val =>
         {
-            if (Enum.IsDefined(typeof(TerrainGenerationSettings.DistributionMode), value))
+            if (Enum.IsDefined(typeof(TerrainGenerationSettings.DistributionMode), val))
             {
-                currentSettings.voronoiDistributionMode = (TerrainGenerationSettings.DistributionMode)value;
-                RegenerateTerrain(); // Trigger terrain regeneration
+                currentSettings.voronoiDistributionMode = (TerrainGenerationSettings.DistributionMode)val;
+                RegenerateTerrain();
             }
         });
     }
 
-    /// <summary>
-    /// Adds listeners for Erosion UI fields.
-    /// </summary>
     private void AddErosionListeners()
     {
-        AddFieldListener(useErosionToggle, value =>
+        AddFieldListener(useErosionToggle, val =>
         {
-            currentSettings.useErosion = value;
+            currentSettings.useErosion = val;
             ClearError();
             RegenerateTerrain();
         });
 
-        AddValidatedFieldListener(talusAngleField, value =>
+        AddValidatedFieldListener(talusAngleField, val =>
         {
-            currentSettings.talusAngle = float.Parse(value);
+            currentSettings.talusAngle = float.Parse(val);
         }, 0.01f, 0.2f);
 
-        AddValidatedFieldListener(erosionIterationsField, value =>
+        AddValidatedFieldListener(erosionIterationsField, val =>
         {
-            currentSettings.erosionIterations = int.Parse(value);
+            currentSettings.erosionIterations = int.Parse(val);
         }, 1, 10);
     }
 
-    /// <summary>
-    /// Adds listeners for River UI fields.
-    /// </summary>
     private void AddRiverListeners()
     {
-        AddFieldListener(useRiversToggle, value =>
+        AddFieldListener(useRiversToggle, val =>
         {
-            currentSettings.useRivers = value;
-            RegenerateTerrain(); // Trigger terrain regeneration
+            currentSettings.useRivers = val;
+            RegenerateTerrain();
         });
 
-        AddValidatedFieldListener(riverWidthField, value =>
+        AddValidatedFieldListener(riverWidthField, val =>
         {
-            currentSettings.riverWidth = float.Parse(value);
-            RegenerateTerrain(); // Trigger terrain regeneration
+            currentSettings.riverWidth = float.Parse(val);
+            RegenerateTerrain();
         }, 1f, 20f);
 
-        AddValidatedFieldListener(riverHeightField, value =>
+        AddValidatedFieldListener(riverHeightField, val =>
         {
-            currentSettings.riverHeight = float.Parse(value);
-            RegenerateTerrain(); // Trigger terrain regeneration
+            currentSettings.riverHeight = float.Parse(val);
+            RegenerateTerrain();
         }, 0f, 1f);
     }
 
-    /// <summary>
-    /// Adds listeners for Trail UI fields.
-    /// </summary>
     private void AddTrailListeners()
     {
-        AddFieldListener(useTrailsToggle, value =>
+        AddFieldListener(useTrailsToggle, val =>
         {
-            currentSettings.useTrails = value;
+            currentSettings.useTrails = val;
             ClearError();
             RegenerateTerrain();
         });
 
-        AddInputFieldListener(trailStartPointXField, value =>
+        AddInputFieldListener(trailStartPointXField, val =>
         {
-            currentSettings.trailStartPoint = new Vector2(float.Parse(value), currentSettings.trailStartPoint.y);
+            currentSettings.trailStartPoint = new Vector2(float.Parse(val), currentSettings.trailStartPoint.y);
         });
 
-        AddInputFieldListener(trailStartPointYField, value =>
+        AddInputFieldListener(trailStartPointYField, val =>
         {
-            currentSettings.trailStartPoint = new Vector2(currentSettings.trailStartPoint.x, float.Parse(value));
+            currentSettings.trailStartPoint = new Vector2(currentSettings.trailStartPoint.x, float.Parse(val));
         });
 
-        AddInputFieldListener(trailEndPointXField, value =>
+        AddInputFieldListener(trailEndPointXField, val =>
         {
-            currentSettings.trailEndPoint = new Vector2(float.Parse(value), currentSettings.trailEndPoint.y);
+            currentSettings.trailEndPoint = new Vector2(float.Parse(val), currentSettings.trailEndPoint.y);
         });
 
-        AddInputFieldListener(trailEndPointYField, value =>
+        AddInputFieldListener(trailEndPointYField, val =>
         {
-            currentSettings.trailEndPoint = new Vector2(currentSettings.trailEndPoint.x, float.Parse(value));
+            currentSettings.trailEndPoint = new Vector2(currentSettings.trailEndPoint.x, float.Parse(val));
         });
 
-        AddValidatedFieldListener(trailWidthField, value =>
+        AddValidatedFieldListener(trailWidthField, val =>
         {
-            currentSettings.trailWidth = float.Parse(value);
+            currentSettings.trailWidth = float.Parse(val);
         }, 1f, 50f);
 
-        AddValidatedFieldListener(trailRandomnessField, value =>
+        AddValidatedFieldListener(trailRandomnessField, val =>
         {
-            currentSettings.trailRandomness = float.Parse(value);
+            currentSettings.trailRandomness = float.Parse(val);
         }, 0f, 5f);
     }
 
-    /// <summary>
-    /// Adds listeners for Lake UI fields.
-    /// </summary>
     private void AddLakeListeners()
     {
-        AddFieldListener(useLakesToggle, value =>
+        AddFieldListener(useLakesToggle, val =>
         {
-            currentSettings.useLakes = value;
+            currentSettings.useLakes = val;
             ClearError();
             RegenerateTerrain();
         });
 
-        AddInputFieldListener(lakeCenterXField, value =>
+        AddInputFieldListener(lakeCenterXField, val =>
         {
-            currentSettings.lakeCenter = new Vector2(float.Parse(value), currentSettings.lakeCenter.y);
+            currentSettings.lakeCenter = new Vector2(float.Parse(val), currentSettings.lakeCenter.y);
         });
 
-        AddInputFieldListener(lakeCenterYField, value =>
+        AddInputFieldListener(lakeCenterYField, val =>
         {
-            currentSettings.lakeCenter = new Vector2(currentSettings.lakeCenter.x, float.Parse(value));
+            currentSettings.lakeCenter = new Vector2(currentSettings.lakeCenter.x, float.Parse(val));
         });
 
-        AddValidatedFieldListener(lakeRadiusField, value =>
+        AddValidatedFieldListener(lakeRadiusField, val =>
         {
-            currentSettings.lakeRadius = float.Parse(value);
+            currentSettings.lakeRadius = float.Parse(val);
         }, 1f, 50f);
 
-        AddValidatedFieldListener(lakeWaterLevelField, value =>
+        AddValidatedFieldListener(lakeWaterLevelField, val =>
         {
-            currentSettings.lakeWaterLevel = float.Parse(value);
+            currentSettings.lakeWaterLevel = float.Parse(val);
         }, 0f, 1f);
     }
 
-    /// <summary>
-    /// Adds a listener to a TMP_InputField to validate and update its value.
-    /// </summary>
-    /// <param name="field">The TMP_InputField to listen to.</param>
-    /// <param name="onChanged">Action to execute when a valid value is entered.</param>
-    /// <param name="min">The minimum allowable value.</param>
-    /// <param name="max">The maximum allowable value.</param>
-    private void AddValidatedFieldListener(TMP_InputField field, System.Action<string> onChanged, float min, float max)
+    private void AddValidatedFieldListener(TMP_InputField field, Action<string> onChanged, float min, float max)
     {
         if (field == null)
         {
@@ -732,26 +702,25 @@ public class TerrainUIManager : MonoBehaviour
             return;
         }
 
-        field.onEndEdit.AddListener(value =>
+        field.onEndEdit.AddListener(val =>
         {
             try
             {
-                if (float.TryParse(value, out float result) && result >= min && result <= max)
+                if (float.TryParse(val, out float result) && result >= min && result <= max)
                 {
-                    onChanged?.Invoke(value);
+                    onChanged?.Invoke(val);
                     ClearError();
                     RegenerateTerrain();
-                    Debug.Log($"TMP_InputField '{field.name}' validated with value: {result}");
                 }
                 else
                 {
                     string errorMsg = $"Invalid input for '{field.name}'. Must be between {min} and {max}.";
                     DisplayError(errorMsg);
                     Debug.LogWarning(errorMsg);
-                    field.text = Mathf.Clamp(result, min, max).ToString(); // Clamp to valid range
+                    field.text = Mathf.Clamp(result, min, max).ToString();
                 }
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
                 DisplayError($"Error processing input for '{field.name}': {ex.Message}");
                 Debug.LogError(ex);
@@ -759,12 +728,7 @@ public class TerrainUIManager : MonoBehaviour
         });
     }
 
-    /// <summary>
-    /// Adds a listener to a TMP_Dropdown to handle selection changes.
-    /// </summary>
-    /// <param name="dropdown">The TMP_Dropdown to listen to.</param>
-    /// <param name="onChanged">Action to execute when the selection changes.</param>
-    private void AddDropdownListener(TMP_Dropdown dropdown, System.Action<int> onChanged)
+    private void AddDropdownListener(TMP_Dropdown dropdown, Action<int> onChanged)
     {
         if (dropdown == null)
         {
@@ -772,16 +736,15 @@ public class TerrainUIManager : MonoBehaviour
             return;
         }
 
-        dropdown.onValueChanged.AddListener(value =>
+        dropdown.onValueChanged.AddListener(val =>
         {
             try
             {
-                onChanged?.Invoke(value);
+                onChanged?.Invoke(val);
                 ClearError();
                 RegenerateTerrain();
-                Debug.Log($"TMP_Dropdown '{dropdown.name}' changed to option index: {value}");
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
                 DisplayError($"Error updating Dropdown '{dropdown.name}': {ex.Message}");
                 Debug.LogError(ex);
@@ -789,27 +752,16 @@ public class TerrainUIManager : MonoBehaviour
         });
     }
 
-
-    /// <summary>
-    /// Adds a listener to an input field to update settings and regenerate terrain.
-    /// </summary>
-    /// <param name="field">The input field to listen to.</param>
-    /// <param name="onChanged">The action to execute when the field changes.</param>
-    private void AddInputFieldListener(TMP_InputField field, System.Action<string> onChanged)
+    private void AddInputFieldListener(TMP_InputField field, Action<string> onChanged)
     {
-        field.onEndEdit.AddListener(value =>
+        field.onEndEdit.AddListener(val =>
         {
-            Debug.Log($"Input Changed: {field.name} = {value}");
-            onChanged(value);
+            Debug.Log($"Input Changed: {field.name} = {val}");
+            onChanged(val);
         });
     }
 
-    /// <summary>
-    /// Adds a listener to a Toggle to handle value changes and regenerate terrain.
-    /// </summary>
-    /// <param name="toggle">The Toggle to listen to.</param>
-    /// <param name="onChanged">Action to execute when the value changes.</param>
-    private void AddFieldListener(Toggle toggle, System.Action<bool> onChanged)
+    private void AddFieldListener(Toggle toggle, Action<bool> onChanged)
     {
         if (toggle == null)
         {
@@ -817,19 +769,16 @@ public class TerrainUIManager : MonoBehaviour
             return;
         }
 
-        toggle.onValueChanged.AddListener(value =>
+        toggle.onValueChanged.AddListener(val =>
         {
             try
             {
-                // Update the setting associated with the toggle
-                onChanged?.Invoke(value);
+                onChanged?.Invoke(val);
 
-                // Ensure the terrain settings are synchronized and regenerate the terrain
                 if (terrainGeneratorManager != null && currentSettings != null)
                 {
                     terrainGeneratorManager.terrainSettings = currentSettings;
                     RegenerateTerrain();
-                    Debug.Log($"Terrain updated after toggling '{toggle.name}' to: {value}");
                 }
                 else
                 {
@@ -838,7 +787,7 @@ public class TerrainUIManager : MonoBehaviour
 
                 ClearError();
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
                 string errorMsg = $"Error updating Toggle '{toggle.name}': {ex.Message}";
                 DisplayError(errorMsg);
@@ -851,10 +800,6 @@ public class TerrainUIManager : MonoBehaviour
 
     #region Terrain Regeneration
 
-    /// <summary>
-    /// Regenerates the terrain using the current settings.
-    /// Ensures all dependencies are correctly assigned before attempting regeneration.
-    /// </summary>
     private void RegenerateTerrain()
     {
         if (terrainGeneratorManager == null)
@@ -875,23 +820,26 @@ public class TerrainUIManager : MonoBehaviour
         {
             Debug.Log("Regenerating terrain with updated settings...");
 
-            // Assign the updated settings to the generator manager
             terrainGeneratorManager.terrainSettings = currentSettings;
-
-            // Generate the terrain
             terrainGeneratorManager.GenerateTerrain();
-
-            // Apply terrain layers for updated visual representation
             terrainGeneratorManager.ApplyTerrainLayers();
 
-            // Clear any errors after successful regeneration
-            ClearError();
+            // Clear and re-instantiate features whenever terrain changes
+            FeatureManager fm = FindObjectOfType<FeatureManager>();
+            if (fm != null)
+            {
+                fm.ClearFeatures();
+                if (fm.featuresEnabled)
+                {
+                    fm.PlaceFeatures();
+                }
+            }
 
+            ClearError();
             Debug.Log("Terrain regeneration completed successfully.");
         }
-        catch (System.Exception ex)
+        catch (Exception ex)
         {
-            // Log and display any exceptions encountered during regeneration
             string errorMessage = $"Error during terrain regeneration: {ex.Message}";
             DisplayError(errorMessage);
             Debug.LogError(ex);
@@ -902,10 +850,6 @@ public class TerrainUIManager : MonoBehaviour
 
     #region Error Handling
 
-    /// <summary>
-    /// Displays an error message on the UI and logs it to the console.
-    /// </summary>
-    /// <param name="message">The error message to display.</param>
     public void DisplayError(string message)
     {
         if (errorMessage == null)
@@ -919,9 +863,6 @@ public class TerrainUIManager : MonoBehaviour
         Debug.LogError($"UI Error Displayed: {message}");
     }
 
-    /// <summary>
-    /// Clears the error message from the UI and hides the error display.
-    /// </summary>
     private void ClearError()
     {
         if (errorMessage == null)
@@ -939,11 +880,6 @@ public class TerrainUIManager : MonoBehaviour
 
     #region Helper Methods
 
-    /// <summary>
-    /// Sets the value of a TMP_InputField UI element.
-    /// </summary>
-    /// <param name="field">The TMP_InputField to update.</param>
-    /// <param name="value">The value to set in the input field.</param>
     private void SetField(TMP_InputField field, string value)
     {
         if (field == null)
@@ -956,11 +892,6 @@ public class TerrainUIManager : MonoBehaviour
         Debug.Log($"Set field {field.name} to value: {value}");
     }
 
-    /// <summary>
-    /// Sets the value of a Toggle UI element.
-    /// </summary>
-    /// <param name="toggle">The Toggle to update.</param>
-    /// <param name="value">The value to set in the toggle.</param>
     private void SetField(Toggle toggle, bool value)
     {
         if (toggle == null)
@@ -973,50 +904,16 @@ public class TerrainUIManager : MonoBehaviour
         Debug.Log($"Set toggle {toggle.name} to value: {value}");
     }
 
-    /// <summary>
-    /// Parses a semicolon-separated string of Voronoi points into a list of Vector2 values.
-    /// </summary>
-    /// <param name="value">The string containing Voronoi points in "x1,y1;x2,y2" format.</param>
-    /// <returns>A list of parsed Vector2 points.</returns>
-    private List<Vector2> ParseCustomVoronoiPoints(string value)
+    private bool floatInRange(string val, float min, float max)
     {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            Debug.LogWarning("Input for custom Voronoi points is empty or null. Returning an empty list.");
-            return new List<Vector2>();
-        }
-
-        var points = new List<Vector2>();
-
-        foreach (string pair in value.Split(';'))
-        {
-            var coords = pair.Split(',');
-
-            if (coords.Length != 2)
-            {
-                Debug.LogWarning($"Invalid point format: {pair}. Skipping.");
-                continue;
-            }
-
-            if (float.TryParse(coords[0], out float x) && float.TryParse(coords[1], out float y))
-            {
-                points.Add(new Vector2(x, y));
-            }
-            else
-            {
-                Debug.LogWarning($"Failed to parse coordinates: {pair}. Skipping.");
-            }
-        }
-
-        Debug.Log($"Parsed {points.Count} custom Voronoi points.");
-        return points;
+        return (float.TryParse(val, out float f) && f >= min && f <= max);
     }
 
-    /// <summary>
-    /// Copies terrain generation settings from a source to a target ScriptableObject instance.
-    /// </summary>
-    /// <param name="source">The source settings to copy from.</param>
-    /// <param name="target">The target settings to copy to.</param>
+    private bool intInRange(string val, int min, int max)
+    {
+        return (int.TryParse(val, out int i) && i >= min && i <= max);
+    }
+
     private void CopySettings(TerrainGenerationSettings source, TerrainGenerationSettings target)
     {
         if (source == null || target == null)
@@ -1025,7 +922,7 @@ public class TerrainUIManager : MonoBehaviour
             return;
         }
 
-        // Perlin Noise Settings
+        // Perlin Noise
         target.usePerlinNoise = source.usePerlinNoise;
         target.perlinLayers = source.perlinLayers;
         target.perlinBaseScale = source.perlinBaseScale;
@@ -1033,7 +930,7 @@ public class TerrainUIManager : MonoBehaviour
         target.perlinFrequencyGrowth = source.perlinFrequencyGrowth;
         target.perlinOffset = source.perlinOffset;
 
-        // Fractal Brownian Motion (fBm) Settings
+        // fBm
         target.useFractalBrownianMotion = source.useFractalBrownianMotion;
         target.fBmLayers = source.fBmLayers;
         target.fBmBaseScale = source.fBmBaseScale;
@@ -1041,13 +938,13 @@ public class TerrainUIManager : MonoBehaviour
         target.fBmFrequencyGrowth = source.fBmFrequencyGrowth;
         target.fBmOffset = source.fBmOffset;
 
-        // Midpoint Displacement Settings
+        // Midpoint
         target.useMidPointDisplacement = source.useMidPointDisplacement;
         target.displacementFactor = source.displacementFactor;
         target.displacementDecayRate = source.displacementDecayRate;
         target.randomSeed = source.randomSeed;
 
-        // Voronoi Biomes Settings
+        // Voronoi
         target.useVoronoiBiomes = source.useVoronoiBiomes;
         target.voronoiCellCount = source.voronoiCellCount;
         target.voronoiDistributionMode = source.voronoiDistributionMode;
@@ -1083,7 +980,6 @@ public class TerrainUIManager : MonoBehaviour
             target.biomes = null;
         }
 
-
         // Rivers
         target.useRivers = source.useRivers;
         target.riverWidth = source.riverWidth;
@@ -1107,13 +1003,17 @@ public class TerrainUIManager : MonoBehaviour
         target.talusAngle = source.talusAngle;
         target.erosionIterations = source.erosionIterations;
 
-        //Features
+        // Features
+        // We'll copy any new settings such as CA iterations, neighbor threshold, and global feature density.
         target.featureSettings = new List<FeatureSettings>(source.featureSettings);
+        target.featureCAIterations = source.featureCAIterations;
+        target.featureNeighborThreshold = source.featureNeighborThreshold;
+        target.globalFeatureDensity = source.globalFeatureDensity;
 
         // Texture Mappings
         if (source.textureMappings != null)
         {
-            target.textureMappings = source.textureMappings.ToArray(); // Deep copy of array
+            target.textureMappings = source.textureMappings.ToArray();
         }
         else
         {

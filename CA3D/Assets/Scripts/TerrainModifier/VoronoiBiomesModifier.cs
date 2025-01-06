@@ -6,20 +6,22 @@ using Unity.Mathematics;
 public class VoronoiBiomesModifier : IHeightModifier
 {
     /// <summary>
-    /// Implements the required ModifyHeight method for the IHeightModifier interface.
+    /// Applies Voronoi-based biome modifications directly to a 2D float array of terrain heights.
+    /// Properly disposes all NativeArrays, ensuring no memory leaks occur.
     /// </summary>
     public void ModifyHeight(float[,] heights, TerrainGenerationSettings settings)
     {
         int width = heights.GetLength(0);
         int length = heights.GetLength(1);
 
+        // Allocate NativeArrays
         NativeArray<float> heightsNative = new NativeArray<float>(width * length, Allocator.TempJob);
         NativeArray<int> biomeIndices = new NativeArray<int>(width * length, Allocator.TempJob);
-        NativeArray<int> terrainLayerIndices = new NativeArray<int>(width * length, Allocator.TempJob);
+        NativeArray<int> terrainLayers = new NativeArray<int>(width * length, Allocator.TempJob);
 
         try
         {
-            // Flatten the heights array into a NativeArray
+            // Flatten the 2D heights array into a 1D NativeArray
             for (int x = 0; x < width; x++)
             {
                 for (int y = 0; y < length; y++)
@@ -28,10 +30,11 @@ public class VoronoiBiomesModifier : IHeightModifier
                 }
             }
 
-            // Schedule the Voronoi biome job
-            ScheduleJob(heightsNative, biomeIndices, terrainLayerIndices, width, length, settings, default).Complete();
+            // Schedule the Voronoi biome job and wait for completion
+            JobHandle handle = ScheduleJob(heightsNative, biomeIndices, terrainLayers, width, length, settings, default);
+            handle.Complete();
 
-            // Write the results back into the heights array
+            // Copy the job results back into the original 2D array
             for (int x = 0; x < width; x++)
             {
                 for (int y = 0; y < length; y++)
@@ -42,15 +45,16 @@ public class VoronoiBiomesModifier : IHeightModifier
         }
         finally
         {
-            // Ensure all allocated memory is properly disposed
-            heightsNative.Dispose();
-            biomeIndices.Dispose();
-            terrainLayerIndices.Dispose();
+            // Dispose all allocated memory in the "finally" to avoid leaks even if exceptions occur
+            if (heightsNative.IsCreated) heightsNative.Dispose();
+            if (biomeIndices.IsCreated) biomeIndices.Dispose();
+            if (terrainLayers.IsCreated) terrainLayers.Dispose();
         }
     }
 
     /// <summary>
-    /// Schedules the Voronoi biome job to process terrain heights and assign biome indices and layers.
+    /// Creates and schedules the VoronoiBiomeJob. Also disposes the temporary NativeArrays (Voronoi points & thresholds)
+    /// once the job has been scheduled, attaching their disposal to the jobHandle itself (Dispose(jobHandle)).
     /// </summary>
     public JobHandle ScheduleJob(
         NativeArray<float> heights,
@@ -63,28 +67,28 @@ public class VoronoiBiomesModifier : IHeightModifier
     {
         ValidateSettings(settings);
 
-        // Generate the Voronoi points and biome thresholds
+        // Create the data needed by the job
         NativeArray<float2> voronoiPoints = GenerateVoronoiPoints(settings, width, length);
-        NativeArray<float3x3> biomeThresholds = GenerateBiomeThresholds(settings);
+        NativeArray<float3x3> biomeThresh = GenerateBiomeThresholds(settings);
 
         // Configure the job
-        var voronoiBiomeJob = new VoronoiBiomeJob
+        var job = new VoronoiBiomeJob
         {
             width = width,
             length = length,
             voronoiPoints = voronoiPoints,
-            biomeThresholds = biomeThresholds,
+            biomeThresholds = biomeThresh,
             biomeIndices = biomeIndices,
             terrainLayerIndices = terrainLayerIndices,
             heights = heights
         };
 
         // Schedule the job
-        JobHandle jobHandle = voronoiBiomeJob.Schedule(width * length, 64, dependency);
+        JobHandle jobHandle = job.Schedule(width * length, 64, dependency);
 
-        // Dispose of temporary data once the job completes
+        // Dispose of the temporary arrays *after* the job completes
         voronoiPoints.Dispose(jobHandle);
-        biomeThresholds.Dispose(jobHandle);
+        biomeThresh.Dispose(jobHandle);
 
         return jobHandle;
     }
@@ -99,9 +103,11 @@ public class VoronoiBiomesModifier : IHeightModifier
             case TerrainGenerationSettings.DistributionMode.Grid:
                 GenerateGridPoints(points, cellCount, width, length);
                 break;
+
             case TerrainGenerationSettings.DistributionMode.Random:
                 GenerateRandomPoints(points, cellCount, width, length, settings.randomSeed);
                 break;
+
             default:
                 throw new NotSupportedException($"Unsupported Voronoi distribution mode: {settings.voronoiDistributionMode}");
         }
@@ -119,17 +125,20 @@ public class VoronoiBiomesModifier : IHeightModifier
         {
             int x = i % gridSize;
             int y = i / gridSize;
-            points[i] = new float2(x * cellWidth + cellWidth / 2f, y * cellHeight + cellHeight / 2f);
+            points[i] = new float2(
+                x * cellWidth + cellWidth * 0.5f,
+                y * cellHeight + cellHeight * 0.5f
+            );
         }
     }
 
     private void GenerateRandomPoints(NativeArray<float2> points, int cellCount, int width, int length, int randomSeed)
     {
-        Unity.Mathematics.Random random = new Unity.Mathematics.Random((uint)randomSeed);
+        Unity.Mathematics.Random rng = new Unity.Mathematics.Random((uint)randomSeed);
 
         for (int i = 0; i < cellCount; i++)
         {
-            points[i] = new float2(random.NextFloat(0, width), random.NextFloat(0, length));
+            points[i] = new float2(rng.NextFloat(0, width), rng.NextFloat(0, length));
         }
     }
 
@@ -139,14 +148,13 @@ public class VoronoiBiomesModifier : IHeightModifier
 
         for (int i = 0; i < settings.biomes.Length; i++)
         {
-            var biome = settings.biomes[i];
+            var b = settings.biomes[i];
             thresholds[i] = new float3x3(
-                new float3(biome.thresholds.minHeight1, biome.thresholds.maxHeight1, 0),
-                new float3(biome.thresholds.minHeight2, biome.thresholds.maxHeight2, 0),
-                new float3(biome.thresholds.minHeight3, biome.thresholds.maxHeight3, 0)
+                new float3(b.thresholds.minHeight1, b.thresholds.maxHeight1, 0),
+                new float3(b.thresholds.minHeight2, b.thresholds.maxHeight2, 0),
+                new float3(b.thresholds.minHeight3, b.thresholds.maxHeight3, 0)
             );
         }
-
         return thresholds;
     }
 

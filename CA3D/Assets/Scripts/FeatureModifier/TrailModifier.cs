@@ -5,7 +5,8 @@ using UnityEngine;
 
 public class TrailModifier : IFeatureModifier
 {
-    public JobHandle ScheduleJob(NativeArray<float> heights, int width, int length, TerrainGenerationSettings settings, JobHandle dependency)
+    public JobHandle ScheduleJob(NativeArray<float> heights, int width, int length,
+        TerrainGenerationSettings settings, JobHandle dependency)
     {
         var job = new TrailJob
         {
@@ -17,7 +18,6 @@ public class TrailModifier : IFeatureModifier
             randomness = settings.trailRandomness,
             heights = heights
         };
-
         return job.Schedule(width * length, 64, dependency);
     }
 

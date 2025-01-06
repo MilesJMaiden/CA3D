@@ -3,12 +3,15 @@ using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
-using static Unity.Cinemachine.CinemachineDecollider;
 
+/// <summary>
+/// Manages the placement of various features on the terrain.
+/// Uses FeaturePlacementJob for initial spawn checks, then applies optional Cellular Automata.
+/// </summary>
 public class FeatureManager : MonoBehaviour
 {
     [Header("Feature Settings")]
-    public List<FeatureSettings> featureSettings; // List of feature settings
+    public List<FeatureSettings> featureSettings;
 
     [Header("Generation Settings")]
     public TerrainGenerationSettings terrainSettings;
@@ -16,7 +19,7 @@ public class FeatureManager : MonoBehaviour
     [Header("Terrain References")]
     public Terrain terrain;
 
-    public bool featuresEnabled = true; // Track the toggle state
+    public bool featuresEnabled = true;
     private TerrainData terrainData;
     private GameObject featureParent;
 
@@ -26,22 +29,19 @@ public class FeatureManager : MonoBehaviour
         InitializeFeatureParent();
     }
 
-    /// <summary>
-    /// Initializes the parent object for all features.
-    /// </summary>
     private void InitializeFeatureParent()
     {
         if (featureParent != null)
         {
             Destroy(featureParent);
         }
-
         featureParent = new GameObject("FeatureParent");
         featureParent.transform.SetParent(transform);
     }
 
     /// <summary>
-    /// Places features on the terrain.
+    /// Places features on the terrain. Clears existing ones, re-initializes, 
+    /// generates biome indices, runs placement jobs, optionally applies CA, and instantiates.
     /// </summary>
     public void PlaceFeatures()
     {
@@ -55,9 +55,12 @@ public class FeatureManager : MonoBehaviour
 
         float[,] heights = terrainData.GetHeights(0, 0, terrainData.heightmapResolution, terrainData.heightmapResolution);
         NativeArray<float> heightMap = FlattenHeightMap(heights);
-
-        // Generate biome indices
         NativeArray<int> biomeIndices = GenerateBiomeIndices(heightMap);
+
+        // Use featureCAIterations, featureNeighborThreshold, globalFeatureDensity from terrainSettings
+        int caIterations = terrainSettings.featureCAIterations;
+        int neighborThreshold = terrainSettings.featureNeighborThreshold;
+        float globalDensity = terrainSettings.globalFeatureDensity;
 
         foreach (var feature in featureSettings)
         {
@@ -69,9 +72,14 @@ public class FeatureManager : MonoBehaviour
 
             NativeArray<int> placementMap = new NativeArray<int>(heightMap.Length, Allocator.TempJob);
 
-            var handle = SchedulePlacementJob(feature, heightMap, placementMap, biomeIndices);
-            handle.Complete();
+            // Schedule the job to figure out where to place this feature
+            var handle = SchedulePlacementJob(feature, heightMap, placementMap, biomeIndices, globalDensity);
+            handle.Complete(); // Wait here, so the next step can read from placementMap
 
+            // Optionally apply a Cellular Automata pass
+            ApplyCellularAutomata(placementMap, terrainData.heightmapResolution, caIterations, neighborThreshold);
+
+            // Instantiate the features
             InstantiateFeatures(feature, placementMap);
 
             placementMap.Dispose();
@@ -81,68 +89,18 @@ public class FeatureManager : MonoBehaviour
         biomeIndices.Dispose();
     }
 
-    /// <summary>
-    /// Generates biome indices based on the heightmap.
-    /// </summary>
-    /// <param name="heightMap">NativeArray of terrain height values.</param>
-    /// <returns>A NativeArray containing biome indices for each point.</returns>
-    private NativeArray<int> GenerateBiomeIndices(NativeArray<float> heightMap)
+    public void ClearFeatures()
     {
-        int resolution = terrainData.heightmapResolution;
-        NativeArray<int> biomeIndices = new NativeArray<int>(resolution * resolution, Allocator.TempJob);
-
-        if (terrainSettings.biomes == null || terrainSettings.biomes.Length == 0)
+        if (featureParent != null)
         {
-            Debug.LogWarning("No biomes defined in terrain settings. Returning default indices.");
-            return biomeIndices; // All indices will be initialized to their default value of 0.
+            Destroy(featureParent);
+            InitializeFeatureParent();
         }
-
-        for (int i = 0; i < biomeIndices.Length; i++)
-        {
-            float height = heightMap[i];
-            int biomeIndex = -1;
-
-            // Iterate through biomes and check their thresholds
-            for (int j = 0; j < terrainSettings.biomes.Length; j++)
-            {
-                var thresholds = terrainSettings.biomes[j].thresholds;
-
-                if ((height >= thresholds.minHeight1 && height <= thresholds.maxHeight1) ||
-                    (height >= thresholds.minHeight2 && height <= thresholds.maxHeight2) ||
-                    (height >= thresholds.minHeight3 && height <= thresholds.maxHeight3))
-                {
-                    biomeIndex = j;
-                    break; // Stop checking once a matching biome is found
-                }
-            }
-
-            // Assign the determined biome index (or -1 if no match was found)
-            biomeIndices[i] = biomeIndex;
-        }
-
-        return biomeIndices;
     }
 
-
-    /// <summary>
-    /// Clears all instantiated features.
-    /// </summary>
-    public void ClearFeatures()
-        {
-            if (featureParent != null)
-            {
-                Destroy(featureParent);
-                InitializeFeatureParent();
-            }
-        }
-
-    /// <summary>
-    /// Toggles feature placement.
-    /// </summary>
     public void ToggleFeatures(bool enabled)
     {
         featuresEnabled = enabled;
-
         if (enabled)
         {
             PlaceFeatures();
@@ -153,38 +111,79 @@ public class FeatureManager : MonoBehaviour
         }
     }
 
-    private JobHandle SchedulePlacementJob(FeatureSettings feature, NativeArray<float> heightMap, NativeArray<int> placementMap, NativeArray<int> biomeIndices)
+    private NativeArray<int> GenerateBiomeIndices(NativeArray<float> heightMap)
+    {
+        int resolution = terrainData.heightmapResolution;
+        NativeArray<int> biomeIndices = new NativeArray<int>(resolution * resolution, Allocator.TempJob);
+
+        if (terrainSettings.biomes == null || terrainSettings.biomes.Length == 0)
+        {
+            Debug.LogWarning("No biomes defined in terrain settings. Returning default indices (all 0).");
+            // They remain 0 by default
+            return biomeIndices;
+        }
+
+        for (int i = 0; i < biomeIndices.Length; i++)
+        {
+            float h = heightMap[i];
+            int biomeIndex = -1;
+            for (int j = 0; j < terrainSettings.biomes.Length; j++)
+            {
+                var th = terrainSettings.biomes[j].thresholds;
+                // If h is in any of the 3 threshold ranges
+                if ((h >= th.minHeight1 && h <= th.maxHeight1) ||
+                    (h >= th.minHeight2 && h <= th.maxHeight2) ||
+                    (h >= th.minHeight3 && h <= th.maxHeight3))
+                {
+                    biomeIndex = j;
+                    break;
+                }
+            }
+            biomeIndices[i] = biomeIndex;
+        }
+
+        return biomeIndices;
+    }
+
+    /// <summary>
+    /// Schedules the FeaturePlacementJob for a specific feature, factoring in global spawn density.
+    /// </summary>
+    private JobHandle SchedulePlacementJob(FeatureSettings feature,
+        NativeArray<float> heightMap,
+        NativeArray<int> placementMap,
+        NativeArray<int> biomeIndices,
+        float globalDensity)
     {
         var job = new FeaturePlacementJob
         {
             heightMap = heightMap,
             placementMap = placementMap,
+            biomeIndices = biomeIndices,
             terrainSize = new int2(terrainData.heightmapResolution, terrainData.heightmapResolution),
             heightRange = feature.heightRange,
             slopeRange = feature.slopeRange,
-            spawnProbability = feature.spawnProbability,
-            biomeIndex = feature.requiresBiome ? feature.biomeIndex : -1, // Check for required biome
-            biomeIndices = biomeIndices, // Pass biome indices
+            // Multiply feature's spawnProbability by globalDensity
+            spawnProbability = feature.spawnProbability * globalDensity,
+            biomeIndex = feature.requiresBiome ? feature.biomeIndex : -1,
             random = new Unity.Mathematics.Random((uint)UnityEngine.Random.Range(1, int.MaxValue))
         };
-
         return job.Schedule(heightMap.Length, 64);
     }
 
-
     private void InstantiateFeatures(FeatureSettings feature, NativeArray<int> placementMap)
     {
+        int resolution = terrainData.heightmapResolution;
         for (int i = 0; i < placementMap.Length; i++)
         {
-            if (placementMap[i] == 1) // Valid placement index
+            if (placementMap[i] == 1)
             {
-                int x = i % terrainData.heightmapResolution;
-                int z = i / terrainData.heightmapResolution;
+                int x = i % resolution;
+                int z = i / resolution;
 
-                Vector3 worldPosition = new Vector3(
-                    x / (float)terrainData.heightmapResolution * terrainData.size.x,
+                Vector3 worldPos = new Vector3(
+                    x / (float)resolution * terrainData.size.x,
                     terrainData.GetHeight(x, z),
-                    z / (float)terrainData.heightmapResolution * terrainData.size.z
+                    z / (float)resolution * terrainData.size.z
                 );
 
                 float scale = UnityEngine.Random.Range(feature.scaleRange.x, feature.scaleRange.y);
@@ -196,7 +195,8 @@ public class FeatureManager : MonoBehaviour
                     continue;
                 }
 
-                GameObject instance = Instantiate(feature.prefab, worldPosition, Quaternion.Euler(0f, rotation, 0f), featureParent.transform);
+                GameObject instance = Instantiate(feature.prefab, worldPos,
+                    Quaternion.Euler(0f, rotation, 0f), featureParent.transform);
                 instance.transform.localScale = Vector3.one * scale;
             }
         }
@@ -204,14 +204,58 @@ public class FeatureManager : MonoBehaviour
 
     private NativeArray<float> FlattenHeightMap(float[,] heights)
     {
-        int width = heights.GetLength(0);
-        int length = heights.GetLength(1);
-        NativeArray<float> flatMap = new NativeArray<float>(width * length, Allocator.TempJob);
+        int w = heights.GetLength(0);
+        int h = heights.GetLength(1);
+        NativeArray<float> flatMap = new NativeArray<float>(w * h, Allocator.TempJob);
 
-        for (int x = 0; x < width; x++)
-            for (int y = 0; y < length; y++)
-                flatMap[x + y * width] = heights[x, y];
-
+        for (int x = 0; x < w; x++)
+        {
+            for (int y = 0; y < h; y++)
+            {
+                flatMap[x + y * w] = heights[x, y];
+            }
+        }
         return flatMap;
+    }
+
+    /// <summary>
+    /// Uses a simple Cellular Automata pass to refine the placement map.
+    /// </summary>
+    private void ApplyCellularAutomata(NativeArray<int> placementMap, int resolution, int iterations, int neighborThreshold)
+    {
+        if (iterations <= 0) return; // No CA if zero or negative
+
+        NativeArray<int> oldMap = new NativeArray<int>(placementMap.Length, Allocator.Temp);
+        NativeArray<int> newMap = new NativeArray<int>(placementMap.Length, Allocator.Temp);
+
+        placementMap.CopyTo(oldMap);
+
+        for (int step = 0; step < iterations; step++)
+        {
+            for (int i = 0; i < oldMap.Length; i++)
+            {
+                int x = i % resolution;
+                int y = i / resolution;
+                int neighbors = 0;
+
+                for (int nx = x - 1; nx <= x + 1; nx++)
+                {
+                    for (int ny = y - 1; ny <= y + 1; ny++)
+                    {
+                        if (nx < 0 || ny < 0 || nx >= resolution || ny >= resolution) continue;
+                        if (nx == x && ny == y) continue;
+                        int idx = nx + ny * resolution;
+                        if (oldMap[idx] == 1) neighbors++;
+                    }
+                }
+
+                newMap[i] = (neighbors >= neighborThreshold) ? 1 : 0;
+            }
+            newMap.CopyTo(oldMap);
+        }
+
+        newMap.CopyTo(placementMap);
+        oldMap.Dispose();
+        newMap.Dispose();
     }
 }

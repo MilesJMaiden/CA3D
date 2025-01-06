@@ -1,3 +1,4 @@
+// VoronoiBiomeJob.cs
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
@@ -8,41 +9,47 @@ public struct VoronoiBiomeJob : IJobParallelFor
 {
     [ReadOnly] public int width;
     [ReadOnly] public int length;
+
     [ReadOnly] public NativeArray<float2> voronoiPoints;
     [ReadOnly] public NativeArray<float3x3> biomeThresholds;
 
-    [WriteOnly] public NativeArray<int> biomeIndices;
-    [WriteOnly] public NativeArray<int> terrainLayerIndices;
+    [WriteOnly] public NativeArray<int> biomeIndices;       // which biome each pixel belongs to
+    [WriteOnly] public NativeArray<int> terrainLayerIndices; // optional single-layer selection
 
+    // The existing terrain heights that can be modified if needed
     public NativeArray<float> heights;
 
     public void Execute(int index)
     {
         int x = index % width;
         int y = index / width;
-        float2 currentPoint = new float2(x, y);
+        float2 current = new float2(x, y);
 
         int nearestBiome, secondNearestBiome;
         float nearestWeight, secondNearestWeight;
-        FindNearestBiomes(currentPoint, out nearestBiome, out secondNearestBiome, out nearestWeight, out secondNearestWeight);
+        FindNearestBiomes(current, out nearestBiome, out secondNearestBiome, out nearestWeight, out secondNearestWeight);
 
+        // Safeguards
         if (nearestBiome < 0) nearestBiome = 0;
         if (secondNearestBiome < 0) secondNearestBiome = nearestBiome;
 
+        // Assign the final biome index
         biomeIndices[index] = nearestBiome;
 
-        float heightVal = heights[index];
-        terrainLayerIndices[index] = DetermineBlendedLayer(
-            heightVal,
+        // Single-layer logic:
+        float h = heights[index];
+        int layer = DetermineBlendedLayer(
+            h,
             biomeThresholds[nearestBiome],
             biomeThresholds[secondNearestBiome],
             nearestWeight,
             secondNearestWeight
         );
+        terrainLayerIndices[index] = layer;
     }
 
     private void FindNearestBiomes(
-        float2 currentPoint,
+        float2 current,
         out int nearestBiome,
         out int secondNearestBiome,
         out float nearestWeight,
@@ -50,11 +57,12 @@ public struct VoronoiBiomeJob : IJobParallelFor
     {
         nearestBiome = -1;
         secondNearestBiome = -1;
-        float nearestDistSq = float.MaxValue;
-        float secondNearestDistSq = float.MaxValue;
+        float bestDistSq = float.MaxValue;
+        float secondDistSq = float.MaxValue;
 
         if (voronoiPoints.Length == 0)
         {
+            // fallback: everything is biome 0
             nearestBiome = 0;
             secondNearestBiome = 0;
             nearestWeight = 1f;
@@ -64,29 +72,30 @@ public struct VoronoiBiomeJob : IJobParallelFor
 
         for (int i = 0; i < voronoiPoints.Length; i++)
         {
-            float distSq = math.distancesq(currentPoint, voronoiPoints[i]);
+            float distSq = math.distancesq(current, voronoiPoints[i]);
 
-            if (distSq < nearestDistSq)
+            if (distSq < bestDistSq)
             {
-                secondNearestDistSq = nearestDistSq;
+                secondDistSq = bestDistSq;
                 secondNearestBiome = nearestBiome;
 
-                nearestDistSq = distSq;
+                bestDistSq = distSq;
                 nearestBiome = i;
             }
-            else if (distSq < secondNearestDistSq)
+            else if (distSq < secondDistSq)
             {
-                secondNearestDistSq = distSq;
+                secondDistSq = distSq;
                 secondNearestBiome = i;
             }
         }
 
+        // If we never found a second, set them equal
         if (secondNearestBiome < 0) secondNearestBiome = nearestBiome;
 
-        float total = nearestDistSq + secondNearestDistSq;
-        if (total > 0f)
+        float sumDist = bestDistSq + secondDistSq;
+        if (sumDist > 0f)
         {
-            nearestWeight = 1f - (nearestDistSq / total);
+            nearestWeight = 1f - (bestDistSq / sumDist);
             secondNearestWeight = 1f - nearestWeight;
         }
         else
@@ -97,36 +106,36 @@ public struct VoronoiBiomeJob : IJobParallelFor
     }
 
     private int DetermineBlendedLayer(
-        float height,
-        float3x3 nearestThresholds,
-        float3x3 secondNearestThresholds,
-        float nearestWeight,
-        float secondNearestWeight)
+        float heightVal,
+        float3x3 nearestThresh,
+        float3x3 secondThresh,
+        float wNearest,
+        float wSecond)
     {
-        float weightLayer0 = 0f;
-        float weightLayer1 = 0f;
-        float weightLayer2 = 0f;
+        float wLayer0 = 0f;
+        float wLayer1 = 0f;
+        float wLayer2 = 0f;
 
-        AccumulateLayerWeights(ref weightLayer0, ref weightLayer1, ref weightLayer2, height, nearestThresholds, nearestWeight);
-        AccumulateLayerWeights(ref weightLayer0, ref weightLayer1, ref weightLayer2, height, secondNearestThresholds, secondNearestWeight);
+        AccumulateLayerWeights(ref wLayer0, ref wLayer1, ref wLayer2, heightVal, nearestThresh, wNearest);
+        AccumulateLayerWeights(ref wLayer0, ref wLayer1, ref wLayer2, heightVal, secondThresh, wSecond);
 
-        return FindDominantLayer(weightLayer0, weightLayer1, weightLayer2);
+        return FindDominantLayer(wLayer0, wLayer1, wLayer2);
     }
 
     private void AccumulateLayerWeights(
         ref float w0,
         ref float w1,
         ref float w2,
-        float height,
-        float3x3 thresholds,
+        float h,
+        float3x3 thresh,
         float biomeWeight)
     {
-        if (height >= thresholds.c0.x && height <= thresholds.c0.y)
-            w0 += biomeWeight;
-        if (height >= thresholds.c1.x && height <= thresholds.c1.y)
-            w1 += biomeWeight;
-        if (height >= thresholds.c2.x && height <= thresholds.c2.y)
-            w2 += biomeWeight;
+        // thresh.c0 => (minHeight1, maxHeight1, unused)
+        // thresh.c1 => ...
+        // thresh.c2 => ...
+        if (h >= thresh.c0.x && h <= thresh.c0.y) w0 += biomeWeight;
+        if (h >= thresh.c1.x && h <= thresh.c1.y) w1 += biomeWeight;
+        if (h >= thresh.c2.x && h <= thresh.c2.y) w2 += biomeWeight;
     }
 
     private int FindDominantLayer(float w0, float w1, float w2)

@@ -8,14 +8,14 @@ using UnityEngine;
 public struct FeaturePlacementJob : IJobParallelFor
 {
     [ReadOnly] public NativeArray<float> heightMap;
-    public NativeArray<int> placementMap;
-    public NativeArray<int> biomeIndices; // Biome indices for each point
-    public int2 terrainSize;
+    [WriteOnly] public NativeArray<int> placementMap;
+    [ReadOnly] public NativeArray<int> biomeIndices;
+    [ReadOnly] public int2 terrainSize;
 
     [ReadOnly] public Vector2 heightRange;
     [ReadOnly] public Vector2 slopeRange;
     [ReadOnly] public float spawnProbability;
-    [ReadOnly] public int biomeIndex; // -1 means no biome restriction
+    [ReadOnly] public int biomeIndex; // -1 => no biome restriction
 
     public Unity.Mathematics.Random random;
 
@@ -27,14 +27,14 @@ public struct FeaturePlacementJob : IJobParallelFor
         float currentHeight = heightMap[index];
         float slope = CalculateSlope(index);
 
-        bool biomeMatches = biomeIndex == -1 || biomeIndices[index] == biomeIndex;
+        bool biomeMatches = (biomeIndex == -1 || biomeIndices[index] == biomeIndex);
 
         if (biomeMatches &&
             currentHeight >= heightRange.x && currentHeight <= heightRange.y &&
             slope >= slopeRange.x && slope <= slopeRange.y &&
             random.NextFloat(0f, 1f) <= spawnProbability)
         {
-            placementMap[index] = 1; // Mark as valid placement
+            placementMap[index] = 1;
         }
     }
 
@@ -51,6 +51,7 @@ public struct FeaturePlacementJob : IJobParallelFor
         float dx = heightMap[right + y * terrainSize.x] - heightMap[left + y * terrainSize.x];
         float dy = heightMap[x + bottom * terrainSize.x] - heightMap[x + top * terrainSize.x];
 
+        // Convert slope to a steeper scale for simpler threshold checks
         return math.sqrt(dx * dx + dy * dy) * 100f;
     }
 }

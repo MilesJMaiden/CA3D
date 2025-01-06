@@ -7,15 +7,13 @@ public class LakeModifier : IFeatureModifier
 {
     public JobHandle ScheduleJob(NativeArray<float> heights, int width, int length, TerrainGenerationSettings settings, JobHandle dependency)
     {
-        // Validate lake settings
         if (settings.lakeRadius <= 0f || settings.lakeWaterLevel < 0f)
         {
-           // Debug.LogWarning("Invalid lake settings: Ensure radius > 0 and waterLevel >= 0.");
-            return dependency; // Skip the lake application
+            // Skip
+            return dependency;
         }
 
         float2 lakeCenter = new float2(settings.lakeCenter.x * width, settings.lakeCenter.y * length);
-        //Debug.Log($"Scheduling LakeJob: Center={lakeCenter}, Radius={settings.lakeRadius}, WaterLevel={settings.lakeWaterLevel}");
 
         var job = new LakeJob
         {
@@ -30,3 +28,4 @@ public class LakeModifier : IFeatureModifier
         return job.Schedule(width * length, 64, dependency);
     }
 }
+

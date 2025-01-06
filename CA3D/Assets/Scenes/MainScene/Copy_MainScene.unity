@@ -24471,10 +24471,7 @@ MonoBehaviour:
   randomSeedField: {fileID: 1599508629}
   useMidPointDisplacementToggle: {fileID: 2132215762}
   voronoiCellCountField: {fileID: 1726669291}
-  voronoiHeightRangeMinField: {fileID: 2005744059}
-  voronoiHeightRangeMaxField: {fileID: 485240182}
   voronoiDistributionModeDropdown: {fileID: 1411123062}
-  customVoronoiPointsField: {fileID: 1401030676}
   useVoronoiBiomesToggle: {fileID: 863877172}
   useErosionToggle: {fileID: 0}
   talusAngleField: {fileID: 0}
@@ -24494,9 +24491,11 @@ MonoBehaviour:
   lakeCenterYField: {fileID: 0}
   lakeRadiusField: {fileID: 0}
   lakeWaterLevelField: {fileID: 0}
-  useFeaturesToggle: {fileID: 0}
-  globalSpawnProbabilityField: {fileID: 0}
-  featureDefinitionsDropdown: {fileID: 0}
+  featureToggleContainer: {fileID: 0}
+  togglePrefab: {fileID: 0}
+  featureCAIterationsField: {fileID: 0}
+  featureNeighborThresholdField: {fileID: 0}
+  globalFeatureDensityField: {fileID: 0}
   errorMessage: {fileID: 386369099}
   terrainGeneratorManager: {fileID: 1719529068}
   availableConfigs:

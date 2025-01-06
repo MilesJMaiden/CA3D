@@ -19,13 +19,13 @@ public struct LakeJob : IJobParallelFor
         int x = index % width;
         int y = index / width;
 
-        float2 currentPoint = new float2(x, y);
-        float distanceToCenter = math.distance(currentPoint, center);
-
-        if (distanceToCenter <= lakeRadius)
+        float2 pt = new float2(x, y);
+        float dist = math.distance(pt, center);
+        if (dist <= lakeRadius)
         {
-            // Only modify terrain within the lake radius
-            heights[index] = math.min(heights[index], waterLevel);
+            // Carve down if it's above water level
+            float oldVal = heights[index];
+            heights[index] = math.min(oldVal, waterLevel);
         }
     }
 }
