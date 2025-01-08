@@ -1009,16 +1009,6 @@ public class TerrainUIManager : MonoBehaviour
         target.featureNeighborThreshold = source.featureNeighborThreshold;
         target.globalFeatureDensity = source.globalFeatureDensity;
 
-        // Texture Mappings
-        if (source.textureMappings != null)
-        {
-            target.textureMappings = source.textureMappings.ToArray();
-        }
-        else
-        {
-            target.textureMappings = null;
-        }
-
         Debug.Log("Settings successfully copied from source to target.");
     }
 

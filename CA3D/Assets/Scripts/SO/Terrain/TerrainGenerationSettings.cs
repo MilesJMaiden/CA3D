@@ -72,16 +72,6 @@ public class TerrainGenerationSettings : ScriptableObject
         Custom
     }
 
-    [Header("Texture Mappings")]
-    public TerrainTextureMapping[] textureMappings;
-    [System.Serializable]
-    public struct TerrainTextureMapping
-    {
-        public TerrainLayer terrainLayer;
-        public float minHeight;
-        public float maxHeight;
-    }
-
     [Header("Lake Settings")]
     public bool useLakes;
     public Vector2 lakeCenter = new Vector2(0.5f, 0.5f);
