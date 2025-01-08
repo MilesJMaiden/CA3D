@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Shrub
   m_EditorClassIdentifier: 
   featureName: Shrub
-  enabled: 1
+  enabled: 0
   prefab: {fileID: 3111876419958309329, guid: 2cb66a3369de30e42a86c7f303ac2e67, type: 3}
   heightRange: {x: 0.1, y: 0.8}
   slopeRange: {x: 0, y: 35}

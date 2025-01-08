@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: GrassPatch
   m_EditorClassIdentifier: 
   featureName: Grass Patch
-  enabled: 1
+  enabled: 0
   prefab: {fileID: 3437744573883228557, guid: 5837c399842618b4c8aedf11330d4dbd, type: 3}
   heightRange: {x: 0.1, y: 1}
   slopeRange: {x: 0, y: 25}

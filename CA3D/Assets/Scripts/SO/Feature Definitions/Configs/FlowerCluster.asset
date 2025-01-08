@@ -13,11 +13,11 @@ MonoBehaviour:
   m_Name: FlowerCluster
   m_EditorClassIdentifier: 
   featureName: Flower Bush
-  enabled: 1
+  enabled: 0
   prefab: {fileID: 729107427309227936, guid: dbea9cbe68324e1439f2ab463b01d267, type: 3}
   heightRange: {x: 0.1, y: 0.7}
   slopeRange: {x: 0, y: 15}
-  spawnProbability: 0.8
+  spawnProbability: 0.6
   requiresBiome: 0
   biomeIndex: -1
   scaleRange: {x: 0.3, y: 0.8}

@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: SmallRock
   m_EditorClassIdentifier: 
   featureName: Small Rock
-  enabled: 1
+  enabled: 0
   prefab: {fileID: 2921791183705386611, guid: ecad611320477cc4ca349cf8fb423e2d, type: 3}
   heightRange: {x: 0.2, y: 1}
   slopeRange: {x: 0, y: 30}

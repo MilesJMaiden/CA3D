@@ -13,25 +13,25 @@ MonoBehaviour:
   m_Name: Desert Terrain
   m_EditorClassIdentifier: 
   usePerlinNoise: 1
-  perlinLayers: 6
-  perlinBaseScale: 40
-  perlinAmplitudeDecay: 0.3
-  perlinFrequencyGrowth: 2
+  perlinLayers: 3
+  perlinBaseScale: 6
+  perlinAmplitudeDecay: 0.1
+  perlinFrequencyGrowth: 4
   perlinOffset: {x: 0.3, y: 0.6}
-  useFractalBrownianMotion: 0
-  fBmLayers: 0
-  fBmBaseScale: 0
-  fBmAmplitudeDecay: 0
-  fBmFrequencyGrowth: 0
-  fBmOffset: {x: 0, y: 0}
-  useMidPointDisplacement: 1
+  useFractalBrownianMotion: 1
+  fBmLayers: 1
+  fBmBaseScale: 2
+  fBmAmplitudeDecay: 0.15
+  fBmFrequencyGrowth: 0.5
+  fBmOffset: {x: 5, y: 3}
+  useMidPointDisplacement: 0
   displacementFactor: 0.8
   displacementDecayRate: 0.6
   randomSeed: 1234
   roughness: 2
   seed: 1234
   useVoronoiBiomes: 0
-  voronoiCellCount: 3
+  voronoiCellCount: 1
   voronoiBlendFactor: 0.5
   voronoiDistributionMode: 1
   biomes:
@@ -39,12 +39,12 @@ MonoBehaviour:
     thresholds:
       layer1: {fileID: 8574412962073106934, guid: 350cff24b308cb94fbcb0040ec708bc2, type: 2}
       minHeight1: -0.05
-      maxHeight1: 0.3
+      maxHeight1: 0.2
       layer2: {fileID: 8574412962073106934, guid: 65e4c298b4a506246b587631e47dd610, type: 2}
-      minHeight2: 0.275
-      maxHeight2: 0.6
+      minHeight2: 0.175
+      maxHeight2: 0.975
       layer3: {fileID: 8574412962073106934, guid: 42f80b93d46647248a57751d9be92221, type: 2}
-      minHeight3: 0.575
+      minHeight3: 0.95
       maxHeight3: 1
   - name: Grassland
     thresholds:
@@ -79,16 +79,6 @@ MonoBehaviour:
       layer3: {fileID: 8574412962073106934, guid: 42f80b93d46647248a57751d9be92221, type: 2}
       minHeight3: 0.575
       maxHeight3: 1
-  textureMappings:
-  - terrainLayer: {fileID: 8574412962073106934, guid: a0e0246d9cb9f7942a0641f9781822cf, type: 2}
-    minHeight: -0.5
-    maxHeight: 0.3
-  - terrainLayer: {fileID: 8574412962073106934, guid: 42f80b93d46647248a57751d9be92221, type: 2}
-    minHeight: 0.275
-    maxHeight: 0.6
-  - terrainLayer: {fileID: 8574412962073106934, guid: 987ec3d578658214796a2a7ea4b8f615, type: 2}
-    minHeight: 0.575
-    maxHeight: 1
   useLakes: 0
   lakeCenter: {x: 0, y: 0}
   lakeRadius: 0
@@ -114,3 +104,10 @@ MonoBehaviour:
   - {fileID: 11400000, guid: bbceeec3680325042812fd9dcc5dd00c, type: 2}
   - {fileID: 11400000, guid: 9aa5cf6c4fb3b024b8003d514377a293, type: 2}
   - {fileID: 11400000, guid: 2ddd9adf85f640d4482aabb1fac22889, type: 2}
+  - {fileID: 11400000, guid: f7ea65e9930bd59409a73666da988a66, type: 2}
+  - {fileID: 11400000, guid: 369eb642f885d514d86dc69e4ad1a62e, type: 2}
+  - {fileID: 11400000, guid: e6f287f72beaf6646b144ad698a8dc80, type: 2}
+  - {fileID: 11400000, guid: 95b39fbbc52125f4bb59e6dabfddb364, type: 2}
+  featureCAIterations: 2
+  featureNeighborThreshold: 3
+  globalFeatureDensity: 1

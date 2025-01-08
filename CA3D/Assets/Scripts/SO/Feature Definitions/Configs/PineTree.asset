@@ -19,6 +19,6 @@ MonoBehaviour:
   slopeRange: {x: 0, y: 30}
   spawnProbability: 0.4
   requiresBiome: 0
-  biomeIndex: 2
+  biomeIndex: -1
   scaleRange: {x: 2, y: 4}
   rotationRange: {x: 0, y: 360}
