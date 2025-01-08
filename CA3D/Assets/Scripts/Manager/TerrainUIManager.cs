@@ -182,7 +182,9 @@ public class TerrainUIManager : MonoBehaviour
 
         LoadValuesFromConfig(availableConfigs[index]);
         UpdateUIFieldsFromSettings(currentSettings);
+        RegenerateTerrain();
     }
+
 
     private void PopulateFeatureToggles()
     {
@@ -371,16 +373,16 @@ public class TerrainUIManager : MonoBehaviour
     {
         Debug.Log("Adding listeners to all UI components...");
 
+        // Perlin Noise
         AddPerlinNoiseListeners();
         AddFractalBrownianMotionListeners();
         AddMidpointDisplacementListeners();
         AddVoronoiBiomesListeners();
-        //AddErosionListeners();
         AddRiverListeners();
         AddTrailListeners();
         AddLakeListeners();
 
-        // Feature-related new listeners
+        // Feature-specific listeners
         if (featureCAIterationsField)
         {
             featureCAIterationsField.onEndEdit.AddListener(value =>
@@ -434,13 +436,13 @@ public class TerrainUIManager : MonoBehaviour
         AddFieldListener(useFractalBrownianMotionToggle, value => currentSettings.useFractalBrownianMotion = value);
         AddFieldListener(useMidPointDisplacementToggle, value => currentSettings.useMidPointDisplacement = value);
         AddFieldListener(useVoronoiBiomesToggle, value => currentSettings.useVoronoiBiomes = value);
-        //AddFieldListener(useErosionToggle, value => currentSettings.useErosion = value);
         AddFieldListener(useRiversToggle, value => currentSettings.useRivers = value);
         AddFieldListener(useTrailsToggle, value => currentSettings.useTrails = value);
         AddFieldListener(useLakesToggle, value => currentSettings.useLakes = value);
 
         Debug.Log("Listeners successfully added to all UI components.");
     }
+
 
     private void AddPerlinNoiseListeners()
     {
@@ -742,7 +744,7 @@ public class TerrainUIManager : MonoBehaviour
             {
                 onChanged?.Invoke(val);
                 ClearError();
-                RegenerateTerrain();
+                RegenerateTerrain(); // Trigger regeneration
             }
             catch (Exception ex)
             {
@@ -795,6 +797,7 @@ public class TerrainUIManager : MonoBehaviour
             }
         });
     }
+
 
     #endregion
 
