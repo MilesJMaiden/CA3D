@@ -118,9 +118,9 @@ public class TerrainGenerator : ITerrainGenerator
                     dependency = lakeModifier.ScheduleJob(heightsNative, width, length, settings, dependency);
                     break;
 
-                case ThermalErosionModifier erosionModifier when settings.useErosion:
-                    dependency = erosionModifier.ScheduleJob(heightsNative, width, length, settings, dependency);
-                    break;
+                //case ThermalErosionModifier erosionModifier when settings.useErosion:
+                //    dependency = erosionModifier.ScheduleJob(heightsNative, width, length, settings, dependency);
+                //    break;
 
                 default:
                     Debug.LogWarning($"Feature {feature.GetType()} does not support jobs or is not enabled.");

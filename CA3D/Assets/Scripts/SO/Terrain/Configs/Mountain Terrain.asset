@@ -13,17 +13,17 @@ MonoBehaviour:
   m_Name: Mountain Terrain
   m_EditorClassIdentifier: 
   usePerlinNoise: 1
-  perlinLayers: 5
-  perlinBaseScale: 50
-  perlinAmplitudeDecay: 0.5
-  perlinFrequencyGrowth: 2
-  perlinOffset: {x: 0.2, y: 0.4}
+  perlinLayers: 50
+  perlinBaseScale: 6
+  perlinAmplitudeDecay: 0.2
+  perlinFrequencyGrowth: 8
+  perlinOffset: {x: 5, y: 5}
   useFractalBrownianMotion: 1
-  fBmLayers: 4
-  fBmBaseScale: 30
-  fBmAmplitudeDecay: 0.4
-  fBmFrequencyGrowth: 2.5
-  fBmOffset: {x: 0.1, y: 0.3}
+  fBmLayers: 3
+  fBmBaseScale: 5
+  fBmAmplitudeDecay: 0.2
+  fBmFrequencyGrowth: 8
+  fBmOffset: {x: 0, y: 5}
   useMidPointDisplacement: 0
   displacementFactor: 0
   displacementDecayRate: 0

@@ -54,9 +54,9 @@ public class TerrainUIManager : MonoBehaviour
     public Toggle useVoronoiBiomesToggle;
 
     // Erosion
-    public Toggle useErosionToggle;
-    public TMP_InputField talusAngleField;
-    public TMP_InputField erosionIterationsField;
+    //public Toggle useErosionToggle;
+    //public TMP_InputField talusAngleField;
+    //public TMP_InputField erosionIterationsField;
 
     // Rivers
     public Toggle useRiversToggle;
@@ -268,7 +268,7 @@ public class TerrainUIManager : MonoBehaviour
         UpdateFractalBrownianMotionFields(config);
         UpdateMidpointDisplacementFields(config);
         UpdateVoronoiBiomesFields(config);
-        UpdateErosionFields(config);
+        //UpdateErosionFields(config);
         UpdateRiverFields(config);
         UpdateTrailFields(config);
         UpdateLakeFields(config);
@@ -329,12 +329,12 @@ public class TerrainUIManager : MonoBehaviour
         voronoiDistributionModeDropdown.RefreshShownValue();
     }
 
-    private void UpdateErosionFields(TerrainGenerationSettings config)
-    {
-        SetField(useErosionToggle, config.useErosion);
-        SetField(talusAngleField, config.talusAngle.ToString());
-        SetField(erosionIterationsField, config.erosionIterations.ToString());
-    }
+    //private void UpdateErosionFields(TerrainGenerationSettings config)
+    //{
+    //    SetField(useErosionToggle, config.useErosion);
+    //    SetField(talusAngleField, config.talusAngle.ToString());
+    //    SetField(erosionIterationsField, config.erosionIterations.ToString());
+    //}
 
     private void UpdateRiverFields(TerrainGenerationSettings config)
     {
@@ -375,7 +375,7 @@ public class TerrainUIManager : MonoBehaviour
         AddFractalBrownianMotionListeners();
         AddMidpointDisplacementListeners();
         AddVoronoiBiomesListeners();
-        AddErosionListeners();
+        //AddErosionListeners();
         AddRiverListeners();
         AddTrailListeners();
         AddLakeListeners();
@@ -434,7 +434,7 @@ public class TerrainUIManager : MonoBehaviour
         AddFieldListener(useFractalBrownianMotionToggle, value => currentSettings.useFractalBrownianMotion = value);
         AddFieldListener(useMidPointDisplacementToggle, value => currentSettings.useMidPointDisplacement = value);
         AddFieldListener(useVoronoiBiomesToggle, value => currentSettings.useVoronoiBiomes = value);
-        AddFieldListener(useErosionToggle, value => currentSettings.useErosion = value);
+        //AddFieldListener(useErosionToggle, value => currentSettings.useErosion = value);
         AddFieldListener(useRiversToggle, value => currentSettings.useRivers = value);
         AddFieldListener(useTrailsToggle, value => currentSettings.useTrails = value);
         AddFieldListener(useLakesToggle, value => currentSettings.useLakes = value);
@@ -583,25 +583,25 @@ public class TerrainUIManager : MonoBehaviour
         });
     }
 
-    private void AddErosionListeners()
-    {
-        AddFieldListener(useErosionToggle, val =>
-        {
-            currentSettings.useErosion = val;
-            ClearError();
-            RegenerateTerrain();
-        });
+    //private void AddErosionListeners()
+    //{
+    //    AddFieldListener(useErosionToggle, val =>
+    //    {
+    //        currentSettings.useErosion = val;
+    //        ClearError();
+    //        RegenerateTerrain();
+    //    });
 
-        AddValidatedFieldListener(talusAngleField, val =>
-        {
-            currentSettings.talusAngle = float.Parse(val);
-        }, 0.01f, 0.2f);
+    //    AddValidatedFieldListener(talusAngleField, val =>
+    //    {
+    //        currentSettings.talusAngle = float.Parse(val);
+    //    }, 0.01f, 0.2f);
 
-        AddValidatedFieldListener(erosionIterationsField, val =>
-        {
-            currentSettings.erosionIterations = int.Parse(val);
-        }, 1, 10);
-    }
+    //    AddValidatedFieldListener(erosionIterationsField, val =>
+    //    {
+    //        currentSettings.erosionIterations = int.Parse(val);
+    //    }, 1, 10);
+    //}
 
     private void AddRiverListeners()
     {
@@ -998,9 +998,9 @@ public class TerrainUIManager : MonoBehaviour
         target.lakeWaterLevel = source.lakeWaterLevel;
 
         // Erosion
-        target.useErosion = source.useErosion;
-        target.talusAngle = source.talusAngle;
-        target.erosionIterations = source.erosionIterations;
+        //target.useErosion = source.useErosion;
+        //target.talusAngle = source.talusAngle;
+        //target.erosionIterations = source.erosionIterations;
 
         // Features
         // We'll copy any new settings such as CA iterations, neighbor threshold, and global feature density.
