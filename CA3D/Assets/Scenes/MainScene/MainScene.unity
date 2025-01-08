@@ -29497,8 +29497,8 @@ MonoBehaviour:
   errorMessage: {fileID: 386369099}
   terrainGeneratorManager: {fileID: 1719529068}
   availableConfigs:
-  - {fileID: 11400000, guid: 1f5cb863f46c8334884127bc2e52128e, type: 2}
   - {fileID: 11400000, guid: 2a524e704a9be8c4aa3a98757f3fe7ef, type: 2}
+  - {fileID: 11400000, guid: 1f5cb863f46c8334884127bc2e52128e, type: 2}
   - {fileID: 11400000, guid: 212eabb6992e8ea4bb48f4065ab0fd03, type: 2}
   - {fileID: 11400000, guid: 0ddff04a997a78549a079ae3ab6c822d, type: 2}
 --- !u!114 &1964166519

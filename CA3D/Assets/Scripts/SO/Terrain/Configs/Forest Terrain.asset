@@ -87,8 +87,8 @@ MonoBehaviour:
   riverHeight: 1
   riverWidth: 1
   useTrails: 1
-  trailStartPoint: {x: 0.3, y: 0.9}
-  trailEndPoint: {x: 0.7, y: 0.1}
+  trailStartPoint: {x: 0, y: 1}
+  trailEndPoint: {x: 1, y: 0}
   trailWidth: 4
   trailRandomness: 2
   useErosion: 0
