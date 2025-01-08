@@ -822,7 +822,6 @@ public class TerrainUIManager : MonoBehaviour
 
             terrainGeneratorManager.terrainSettings = currentSettings;
             terrainGeneratorManager.GenerateTerrain();
-            terrainGeneratorManager.ApplyTerrainLayers();
 
             // Clear and re-instantiate features whenever terrain changes
             FeatureManager fm = FindObjectOfType<FeatureManager>();
