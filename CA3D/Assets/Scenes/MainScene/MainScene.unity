@@ -23386,12 +23386,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Padding:
-    m_Left: 5
-    m_Right: 5
+    m_Left: 25
+    m_Right: 0
     m_Top: 5
     m_Bottom: 0
   m_ChildAlignment: 1
-  m_Spacing: 18
+  m_Spacing: 20
   m_ChildForceExpandWidth: 1
   m_ChildForceExpandHeight: 1
   m_ChildControlWidth: 0
@@ -29499,7 +29499,6 @@ MonoBehaviour:
   availableConfigs:
   - {fileID: 11400000, guid: 1f5cb863f46c8334884127bc2e52128e, type: 2}
   - {fileID: 11400000, guid: 2a524e704a9be8c4aa3a98757f3fe7ef, type: 2}
-  - {fileID: 11400000, guid: 8b66b0d81f98b354cb9d9c14ef6861d3, type: 2}
   - {fileID: 11400000, guid: 212eabb6992e8ea4bb48f4065ab0fd03, type: 2}
   - {fileID: 11400000, guid: 0ddff04a997a78549a079ae3ab6c822d, type: 2}
 --- !u!114 &1964166519
@@ -32563,7 +32562,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 2143455858}
-  - component: {fileID: 2143455857}
   m_Layer: 0
   m_Name: CameraManager
   m_TagString: Untagged
@@ -32571,24 +32569,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &2143455857
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2143455856}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b5cf7be42dd277a4dbf0b6547caa42e2, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  panSpeed: 20
-  zoomSpeed: 10
-  minZoom: 20
-  maxZoom: 100
-  rotationSpeed: 50
-  terrain: {fileID: 1719529065}
 --- !u!4 &2143455858
 Transform:
   m_ObjectHideFlags: 0

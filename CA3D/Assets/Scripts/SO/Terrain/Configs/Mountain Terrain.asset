@@ -35,6 +35,28 @@ MonoBehaviour:
   voronoiBlendFactor: 0.5
   voronoiDistributionMode: 1
   biomes:
+  - name: Mountain
+    thresholds:
+      layer1: {fileID: 8574412962073106934, guid: a0e0246d9cb9f7942a0641f9781822cf, type: 2}
+      minHeight1: -0.5
+      maxHeight1: 0.125
+      layer2: {fileID: 8574412962073106934, guid: 42f80b93d46647248a57751d9be92221, type: 2}
+      minHeight2: 0.1
+      maxHeight2: 0.925
+      layer3: {fileID: 8574412962073106934, guid: 987ec3d578658214796a2a7ea4b8f615, type: 2}
+      minHeight3: 0.9
+      maxHeight3: 1
+  - name: Grassland
+    thresholds:
+      layer1: {fileID: 8574412962073106934, guid: 65e4c298b4a506246b587631e47dd610, type: 2}
+      minHeight1: -0.05
+      maxHeight1: 0.05
+      layer2: {fileID: 8574412962073106934, guid: a0e0246d9cb9f7942a0641f9781822cf, type: 2}
+      minHeight2: 0
+      maxHeight2: 1
+      layer3: {fileID: 8574412962073106934, guid: 42f80b93d46647248a57751d9be92221, type: 2}
+      minHeight3: 0.975
+      maxHeight3: 1
   - name: Desert
     thresholds:
       layer1: {fileID: 8574412962073106934, guid: 350cff24b308cb94fbcb0040ec708bc2, type: 2}
@@ -46,38 +68,16 @@ MonoBehaviour:
       layer3: {fileID: 8574412962073106934, guid: 42f80b93d46647248a57751d9be92221, type: 2}
       minHeight3: 0.95
       maxHeight3: 1
-  - name: Grassland
+  - name: Icy
     thresholds:
       layer1: {fileID: 8574412962073106934, guid: 65e4c298b4a506246b587631e47dd610, type: 2}
       minHeight1: -0.05
-      maxHeight1: 0.3
-      layer2: {fileID: 8574412962073106934, guid: a0e0246d9cb9f7942a0641f9781822cf, type: 2}
-      minHeight2: 0.275
-      maxHeight2: 0.6
-      layer3: {fileID: 8574412962073106934, guid: 42f80b93d46647248a57751d9be92221, type: 2}
-      minHeight3: 0.575
-      maxHeight3: 1
-  - name: Forest
-    thresholds:
-      layer1: {fileID: 8574412962073106934, guid: 65e4c298b4a506246b587631e47dd610, type: 2}
-      minHeight1: -0.05
-      maxHeight1: 0.3
-      layer2: {fileID: 8574412962073106934, guid: a0e0246d9cb9f7942a0641f9781822cf, type: 2}
-      minHeight2: 0.275
-      maxHeight2: 0.6
-      layer3: {fileID: 8574412962073106934, guid: 42f80b93d46647248a57751d9be92221, type: 2}
-      minHeight3: 0.575
-      maxHeight3: 1
-  - name: Mountain
-    thresholds:
-      layer1: {fileID: 8574412962073106934, guid: 65e4c298b4a506246b587631e47dd610, type: 2}
-      minHeight1: -0.5
-      maxHeight1: 0.3
-      layer2: {fileID: 8574412962073106934, guid: a0e0246d9cb9f7942a0641f9781822cf, type: 2}
-      minHeight2: 0.275
-      maxHeight2: 0.6
-      layer3: {fileID: 8574412962073106934, guid: 42f80b93d46647248a57751d9be92221, type: 2}
-      minHeight3: 0.575
+      maxHeight1: 0.025
+      layer2: {fileID: 8574412962073106934, guid: e2790090c9253a04cbbc8ee231da62f3, type: 2}
+      minHeight2: 0
+      maxHeight2: 0.95
+      layer3: {fileID: 8574412962073106934, guid: 987ec3d578658214796a2a7ea4b8f615, type: 2}
+      minHeight3: 0
       maxHeight3: 1
   useLakes: 0
   lakeCenter: {x: 0.5, y: 0.5}
