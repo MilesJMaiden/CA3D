@@ -2,9 +2,6 @@ using System.Collections.Generic;
 using UnityEngine;
 
 [CreateAssetMenu(menuName = "Terrain/GenerationSettings")]
-/// <summary>
-/// Represents settings for terrain generation, including noise, displacement, biomes, lakes, rivers, trails, erosion, and feature parameters.
-/// </summary>
 public class TerrainGenerationSettings : ScriptableObject
 {
     [Header("Perlin Noise Settings")]
@@ -49,17 +46,14 @@ public class TerrainGenerationSettings : ScriptableObject
     [System.Serializable]
     public struct BiomeThresholds
     {
-        [Header("Layer 1 Settings")]
         public TerrainLayer layer1;
         public float minHeight1;
         public float maxHeight1;
 
-        [Header("Layer 2 Settings")]
         public TerrainLayer layer2;
         public float minHeight2;
         public float maxHeight2;
 
-        [Header("Layer 3 Settings")]
         public TerrainLayer layer3;
         public float minHeight3;
         public float maxHeight3;
@@ -96,7 +90,7 @@ public class TerrainGenerationSettings : ScriptableObject
     public int erosionIterations = 3;
 
     [Header("Feature Settings")]
-    public List<FeatureSettings> featureSettings;
+    public List<FeatureEntry> featureSettings;
 
     [Tooltip("Number of Cellular Automata iterations for feature placement.")]
     public int featureCAIterations = 2;
@@ -106,4 +100,11 @@ public class TerrainGenerationSettings : ScriptableObject
 
     [Tooltip("Global multiplier applied to feature spawn probability.")]
     public float globalFeatureDensity = 1f;
+
+    [System.Serializable]
+    public class FeatureEntry
+    {
+        public bool isEnabled; // Boolean toggle for the feature's state in the Inspector
+        public FeatureSettings feature; // Reference to the FeatureSettings scriptable object
+    }
 }

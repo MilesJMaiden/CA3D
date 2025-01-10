@@ -29471,9 +29471,6 @@ MonoBehaviour:
   voronoiCellCountField: {fileID: 1726669291}
   voronoiDistributionModeDropdown: {fileID: 1411123062}
   useVoronoiBiomesToggle: {fileID: 863877172}
-  useErosionToggle: {fileID: 206517219}
-  talusAngleField: {fileID: 271891231}
-  erosionIterationsField: {fileID: 709940365}
   useRiversToggle: {fileID: 1322454729}
   riverWidthField: {fileID: 1438943878}
   riverHeightField: {fileID: 2122776412}

@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Dry Cactus
   m_EditorClassIdentifier: 
   featureName: Dry Cactus
-  enabled: 1
+  enabled: 0
   prefab: {fileID: 3190825594498637241, guid: e481244efb2f1c140b6ef6983e31bb15, type: 3}
   heightRange: {x: 0.1, y: 0.8}
   slopeRange: {x: 0, y: 15}

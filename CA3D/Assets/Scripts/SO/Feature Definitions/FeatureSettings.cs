@@ -5,7 +5,7 @@ public class FeatureSettings : ScriptableObject
 {
     [Header("General Settings")]
     public string featureName; // Display name for the feature
-    public bool enabled; // Toggle to enable/disable this feature
+    public bool enabled; // perhaps this should be removed?
     public GameObject prefab; // Prefab for the feature
 
     [Header("Placement Rules")]

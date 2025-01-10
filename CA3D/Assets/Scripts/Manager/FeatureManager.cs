@@ -62,25 +62,27 @@ public class FeatureManager : MonoBehaviour
         int neighborThreshold = terrainSettings.featureNeighborThreshold;
         float globalDensity = terrainSettings.globalFeatureDensity;
 
-        foreach (var feature in featureSettings)
+        foreach (var featureEntry in terrainSettings.featureSettings)
         {
-            if (!feature.enabled)
+            if (featureEntry == null || featureEntry.feature == null) continue;
+
+            if (!featureEntry.isEnabled)
             {
-                Debug.Log($"Skipping disabled feature: {feature.featureName}");
+                Debug.Log($"Skipping disabled feature: {featureEntry.feature.featureName}");
                 continue;
             }
 
             NativeArray<int> placementMap = new NativeArray<int>(heightMap.Length, Allocator.TempJob);
 
             // Schedule the job to figure out where to place this feature
-            var handle = SchedulePlacementJob(feature, heightMap, placementMap, biomeIndices, globalDensity);
+            var handle = SchedulePlacementJob(featureEntry.feature, heightMap, placementMap, biomeIndices, globalDensity);
             handle.Complete(); // Wait here, so the next step can read from placementMap
 
             // Optionally apply a Cellular Automata pass
             ApplyCellularAutomata(placementMap, terrainData.heightmapResolution, caIterations, neighborThreshold);
 
             // Instantiate the features
-            InstantiateFeatures(feature, placementMap);
+            InstantiateFeatures(featureEntry.feature, placementMap);
 
             placementMap.Dispose();
         }
@@ -88,6 +90,7 @@ public class FeatureManager : MonoBehaviour
         heightMap.Dispose();
         biomeIndices.Dispose();
     }
+
 
     public void ClearFeatures()
     {

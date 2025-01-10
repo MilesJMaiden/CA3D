@@ -185,7 +185,6 @@ public class TerrainUIManager : MonoBehaviour
         RegenerateTerrain();
     }
 
-
     private void PopulateFeatureToggles()
     {
         if (featureToggleContainer == null || togglePrefab == null)
@@ -194,33 +193,45 @@ public class TerrainUIManager : MonoBehaviour
             return;
         }
 
+        // Clear existing toggles
         foreach (Transform child in featureToggleContainer.transform)
         {
             Destroy(child.gameObject);
         }
 
-        if (currentSettings.featureSettings == null) return;
-
-        foreach (var feature in currentSettings.featureSettings)
+        // Populate toggles from featureSettings
+        foreach (var featureEntry in currentSettings.featureSettings)
         {
+            if (featureEntry == null || featureEntry.feature == null) continue;
+
+            // Instantiate a new toggle prefab
             GameObject toggleObj = Instantiate(togglePrefab, featureToggleContainer.transform);
             Toggle toggle = toggleObj.GetComponent<Toggle>();
             TextMeshProUGUI label = toggleObj.GetComponentInChildren<TextMeshProUGUI>();
 
+            // Set the label and initial state
             if (label != null)
             {
-                label.text = feature.featureName;
+                label.text = featureEntry.feature.featureName;
             }
+            toggle.isOn = featureEntry.isEnabled;
 
-            toggle.isOn = feature.enabled;
+            // Add a listener to update the feature state and regenerate terrain
             toggle.onValueChanged.AddListener(value =>
             {
-                feature.enabled = value;
-                // Force a terrain regeneration to refresh features
+                featureEntry.isEnabled = value;
+
+                // Trigger terrain regeneration
                 RegenerateTerrain();
             });
         }
+
+        // Force layout rebuild to update the scroll view
+        Canvas.ForceUpdateCanvases();
+        LayoutRebuilder.ForceRebuildLayoutImmediate(featureToggleContainer.GetComponent<RectTransform>());
     }
+
+
 
     private bool IsValidConfigIndex(int index)
     {
@@ -826,15 +837,12 @@ public class TerrainUIManager : MonoBehaviour
             terrainGeneratorManager.terrainSettings = currentSettings;
             terrainGeneratorManager.GenerateTerrain();
 
-            // Clear and re-instantiate features whenever terrain changes
-            FeatureManager fm = FindObjectOfType<FeatureManager>();
-            if (fm != null)
+            // Place features based on the updated settings
+            FeatureManager featureManager = FindObjectOfType<FeatureManager>();
+            if (featureManager != null)
             {
-                fm.ClearFeatures();
-                if (fm.featuresEnabled)
-                {
-                    fm.PlaceFeatures();
-                }
+                featureManager.terrainSettings = currentSettings;
+                featureManager.PlaceFeatures();
             }
 
             ClearError();
@@ -847,6 +855,7 @@ public class TerrainUIManager : MonoBehaviour
             Debug.LogError(ex);
         }
     }
+
 
     #endregion
 
@@ -1007,7 +1016,20 @@ public class TerrainUIManager : MonoBehaviour
 
         // Features
         // We'll copy any new settings such as CA iterations, neighbor threshold, and global feature density.
-        target.featureSettings = new List<FeatureSettings>(source.featureSettings);
+        // Copy each feature entry to the target
+        target.featureSettings = new List<TerrainGenerationSettings.FeatureEntry>();
+        foreach (var featureEntry in source.featureSettings)
+        {
+            if (featureEntry != null)
+            {
+                target.featureSettings.Add(new TerrainGenerationSettings.FeatureEntry
+                {
+                    isEnabled = featureEntry.isEnabled, // Copy the state of the feature toggle
+                    feature = featureEntry.feature      // Copy the reference to the FeatureSettings
+                });
+            }
+        }
+
         target.featureCAIterations = source.featureCAIterations;
         target.featureNeighborThreshold = source.featureNeighborThreshold;
         target.globalFeatureDensity = source.globalFeatureDensity;
