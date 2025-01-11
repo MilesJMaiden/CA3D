@@ -95,9 +95,9 @@ MonoBehaviour:
   talusAngle: 0.1
   erosionIterations: 1
   featureSettings:
-  - isEnabled: 0
+  - isEnabled: 1
     feature: {fileID: 11400000, guid: 369eb642f885d514d86dc69e4ad1a62e, type: 2}
-  - isEnabled: 0
+  - isEnabled: 1
     feature: {fileID: 11400000, guid: e6f287f72beaf6646b144ad698a8dc80, type: 2}
   - isEnabled: 0
     feature: {fileID: 11400000, guid: b66a0285c310c8c42858d3ac2f67d460, type: 2}
@@ -107,7 +107,7 @@ MonoBehaviour:
     feature: {fileID: 11400000, guid: f7ea65e9930bd59409a73666da988a66, type: 2}
   - isEnabled: 0
     feature: {fileID: 11400000, guid: 7ad4842930ae81346af964902f9a34e2, type: 2}
-  - isEnabled: 0
+  - isEnabled: 1
     feature: {fileID: 11400000, guid: 359534ea76b5b4548a87f69bdf200cc7, type: 2}
   - isEnabled: 0
     feature: {fileID: 11400000, guid: 222483207b1381740bc12a7a58136c96, type: 2}
@@ -115,9 +115,9 @@ MonoBehaviour:
     feature: {fileID: 11400000, guid: f2c6bba6e22fffe45ab9aae6d1b2f82f, type: 2}
   - isEnabled: 0
     feature: {fileID: 11400000, guid: bbceeec3680325042812fd9dcc5dd00c, type: 2}
-  - isEnabled: 0
+  - isEnabled: 1
     feature: {fileID: 11400000, guid: 9aa5cf6c4fb3b024b8003d514377a293, type: 2}
-  - isEnabled: 0
+  - isEnabled: 1
     feature: {fileID: 11400000, guid: 95b39fbbc52125f4bb59e6dabfddb364, type: 2}
   - isEnabled: 0
     feature: {fileID: 11400000, guid: 2ddd9adf85f640d4482aabb1fac22889, type: 2}

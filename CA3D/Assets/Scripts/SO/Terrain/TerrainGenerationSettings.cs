@@ -33,8 +33,11 @@ public class TerrainGenerationSettings : ScriptableObject
     public int voronoiCellCount = 10;
     public float voronoiBlendFactor = 0.5f;
     public DistributionMode voronoiDistributionMode = DistributionMode.Random;
-    public Biome[] biomes;
-    public int BiomeCount => biomes?.Length ?? 0;
+    public List<Biome> biomes = new List<Biome>();
+    public int BiomeCount => biomes?.Count ?? 0;
+
+    // Adding this Length property to match the existing references
+    public int Length => biomes?.Count ?? 0;
 
     [System.Serializable]
     public class Biome
@@ -90,21 +93,49 @@ public class TerrainGenerationSettings : ScriptableObject
     public int erosionIterations = 3;
 
     [Header("Feature Settings")]
-    public List<FeatureEntry> featureSettings;
-
-    [Tooltip("Number of Cellular Automata iterations for feature placement.")]
+    public List<FeatureEntry> featureSettings = new List<FeatureEntry>();
     public int featureCAIterations = 2;
-
-    [Tooltip("Neighbor threshold (Moore neighborhood) required to keep a feature cell alive.")]
     public int featureNeighborThreshold = 3;
-
-    [Tooltip("Global multiplier applied to feature spawn probability.")]
     public float globalFeatureDensity = 1f;
 
     [System.Serializable]
     public class FeatureEntry
     {
-        public bool isEnabled; // Boolean toggle for the feature's state in the Inspector
-        public FeatureSettings feature; // Reference to the FeatureSettings scriptable object
+        public bool isEnabled;
+        public FeatureSettings feature;
+    }
+
+    [Header("Agent Settings")]
+    public bool enableAgents;
+    public List<AgentEntry> agentSettings = new List<AgentEntry>();
+
+    [System.Serializable]
+    public class AgentEntry
+    {
+        public bool isEnabled;
+        public GameObject agentPrefab;
+        public string agentName;
+        public List<AgentBehaviorModifier> behaviorModifiers = new List<AgentBehaviorModifier>();
+    }
+
+    [System.Serializable]
+    public class AgentBehaviorModifier
+    {
+        public string modifierName;
+        public float intensity;
+    }
+
+    public void ApplyAgentBehaviorModifiers(GameObject agent, TerrainFeatureContext context)
+    {
+        foreach (var entry in agentSettings)
+        {
+            if (!entry.isEnabled) continue;
+
+            var agentBehavior = agent.GetComponent<IAgentBehavior>();
+            if (agentBehavior != null)
+            {
+                agentBehavior.ModifyBehavior(context, entry.behaviorModifiers);
+            }
+        }
     }
 }

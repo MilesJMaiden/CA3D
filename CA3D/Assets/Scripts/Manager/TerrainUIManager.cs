@@ -118,6 +118,7 @@ public class TerrainUIManager : MonoBehaviour
         LoadDefaultValues();
         PopulateVoronoiDistributionDropdown();
         AddListeners();
+        RegenerateTerrain();
     }
 
     #endregion
@@ -581,10 +582,10 @@ public class TerrainUIManager : MonoBehaviour
         {
             if (int.TryParse(val, out int cellCount))
             {
-                currentSettings.voronoiCellCount = Mathf.Clamp(cellCount, 1, currentSettings.biomes.Length);
+                currentSettings.voronoiCellCount = Mathf.Clamp(cellCount, 1, currentSettings.biomes.Count);
                 RegenerateTerrain();
             }
-        }, 1, currentSettings.biomes.Length);
+        }, 1, currentSettings.biomes.Count);
 
         AddDropdownListener(voronoiDistributionModeDropdown, val =>
         {
@@ -963,10 +964,10 @@ public class TerrainUIManager : MonoBehaviour
 
         if (source.biomes != null)
         {
-            target.biomes = new TerrainGenerationSettings.Biome[source.biomes.Length];
-            for (int i = 0; i < source.biomes.Length; i++)
+            target.biomes = new List<TerrainGenerationSettings.Biome>();
+            for (int i = 0; i < source.biomes.Count; i++)
             {
-                target.biomes[i] = new TerrainGenerationSettings.Biome
+                target.biomes.Add(new TerrainGenerationSettings.Biome
                 {
                     name = source.biomes[i].name,
                     thresholds = new TerrainGenerationSettings.BiomeThresholds
@@ -983,13 +984,14 @@ public class TerrainUIManager : MonoBehaviour
                         minHeight3 = source.biomes[i].thresholds.minHeight3,
                         maxHeight3 = source.biomes[i].thresholds.maxHeight3
                     }
-                };
+                });
             }
         }
         else
         {
             target.biomes = null;
         }
+
 
         // Rivers
         target.useRivers = source.useRivers;

@@ -26,7 +26,24 @@ public class FeatureManager : MonoBehaviour
     private void Start()
     {
         terrainData = terrain.terrainData;
+
+        if (terrainData == null)
+        {
+            Debug.LogError("Terrain data is not assigned or loaded.");
+            return;
+        }
+
         InitializeFeatureParent();
+
+        if (featuresEnabled)
+        {
+            PlaceFeatures();
+        }
+    }
+
+    public List<FeatureSettings> GetFeatures()
+    {
+        return featureSettings.FindAll(feature => feature.enabled);
     }
 
     private void InitializeFeatureParent()
@@ -119,7 +136,7 @@ public class FeatureManager : MonoBehaviour
         int resolution = terrainData.heightmapResolution;
         NativeArray<int> biomeIndices = new NativeArray<int>(resolution * resolution, Allocator.TempJob);
 
-        if (terrainSettings.biomes == null || terrainSettings.biomes.Length == 0)
+        if (terrainSettings.biomes == null || terrainSettings.biomes.Count == 0)
         {
             Debug.LogWarning("No biomes defined in terrain settings. Returning default indices (all 0).");
             // They remain 0 by default
@@ -130,7 +147,7 @@ public class FeatureManager : MonoBehaviour
         {
             float h = heightMap[i];
             int biomeIndex = -1;
-            for (int j = 0; j < terrainSettings.biomes.Length; j++)
+            for (int j = 0; j < terrainSettings.biomes.Count; j++)
             {
                 var th = terrainSettings.biomes[j].thresholds;
                 // If h is in any of the 3 threshold ranges
@@ -147,6 +164,7 @@ public class FeatureManager : MonoBehaviour
 
         return biomeIndices;
     }
+
 
     /// <summary>
     /// Schedules the FeaturePlacementJob for a specific feature, factoring in global spawn density.

@@ -95,7 +95,7 @@ public class VoronoiBiomesModifier : IHeightModifier
 
     private NativeArray<float2> GenerateVoronoiPoints(TerrainGenerationSettings settings, int width, int length)
     {
-        int cellCount = math.clamp(settings.voronoiCellCount, 1, settings.biomes.Length);
+        int cellCount = math.clamp(settings.voronoiCellCount, 1, settings.biomes.Count);
         NativeArray<float2> points = new NativeArray<float2>(cellCount, Allocator.TempJob);
 
         switch (settings.voronoiDistributionMode)
@@ -144,9 +144,9 @@ public class VoronoiBiomesModifier : IHeightModifier
 
     private NativeArray<float3x3> GenerateBiomeThresholds(TerrainGenerationSettings settings)
     {
-        NativeArray<float3x3> thresholds = new NativeArray<float3x3>(settings.biomes.Length, Allocator.TempJob);
+        NativeArray<float3x3> thresholds = new NativeArray<float3x3>(settings.biomes.Count, Allocator.TempJob);
 
-        for (int i = 0; i < settings.biomes.Length; i++)
+        for (int i = 0; i < settings.biomes.Count; i++)
         {
             var b = settings.biomes[i];
             thresholds[i] = new float3x3(
@@ -160,7 +160,7 @@ public class VoronoiBiomesModifier : IHeightModifier
 
     private void ValidateSettings(TerrainGenerationSettings settings)
     {
-        if (settings.biomes == null || settings.biomes.Length == 0)
+        if (settings.biomes == null || settings.biomes.Count == 0)
             throw new ArgumentException("Biomes must be defined for Voronoi biome generation.");
         if (settings.voronoiCellCount <= 0)
             throw new ArgumentException("Voronoi cell count must be greater than 0.");

@@ -47,6 +47,11 @@ public class TerrainGeneratorManager : MonoBehaviour
     // Cached mappings for terrain layers to improve performance during texture application
     private Dictionary<TerrainLayer, int> CachedLayerMappings;
 
+    public event System.Action OnTerrainRegenerated;
+    public Vector3 terrainSize => new Vector3(width, height, length);
+
+
+
     #endregion
 
     #region Unity Lifecycle
@@ -208,7 +213,7 @@ public class TerrainGeneratorManager : MonoBehaviour
                 int biomeIndex = biomeIndices[index];
                 float heightValue = heights[x, y];
 
-                if (biomeIndex >= 0 && biomeIndex < terrainSettings.biomes.Length)
+                if (biomeIndex >= 0 && biomeIndex < terrainSettings.biomes.Count)
                 {
                     var thresholds = terrainSettings.biomes[biomeIndex].thresholds;
                     AssignLayerWeights(splatmap, x, y, layers, thresholds, heightValue);
@@ -220,7 +225,6 @@ public class TerrainGeneratorManager : MonoBehaviour
         m_TerrainData.SetAlphamaps(0, 0, splatmap);
         Debug.Log("Splatmap applied with biome-based textures.");
     }
-
 
 
     private (NativeArray<int> biomeIndices, NativeArray<int> terrainLayerIndices)
@@ -313,7 +317,7 @@ public class TerrainGeneratorManager : MonoBehaviour
 
     private void SyncTerrainLayersWithBiomes()
     {
-        if (terrainSettings.biomes == null || terrainSettings.biomes.Length == 0)
+        if (terrainSettings.biomes == null || terrainSettings.biomes.Count == 0)
         {
             Debug.LogError("No biomes are defined in terrain settings. Cannot synchronize terrain layers.");
             return;
@@ -352,6 +356,7 @@ public class TerrainGeneratorManager : MonoBehaviour
     }
 
 
+
     private NativeArray<float2> GenerateVoronoiPoints(int cellCount, int width, int length)
     {
         NativeArray<float2> points = new NativeArray<float2>(cellCount, Allocator.TempJob);
@@ -386,9 +391,9 @@ public class TerrainGeneratorManager : MonoBehaviour
 
     private NativeArray<float3x3> GenerateBiomeThresholds()
     {
-        NativeArray<float3x3> thresholds = new NativeArray<float3x3>(terrainSettings.biomes.Length, Allocator.TempJob);
+        NativeArray<float3x3> thresholds = new NativeArray<float3x3>(terrainSettings.biomes.Count, Allocator.TempJob);
 
-        for (int i = 0; i < terrainSettings.biomes.Length; i++)
+        for (int i = 0; i < terrainSettings.biomes.Count; i++)
         {
             var biome = terrainSettings.biomes[i];
             thresholds[i] = new float3x3(
@@ -400,7 +405,6 @@ public class TerrainGeneratorManager : MonoBehaviour
 
         return thresholds;
     }
-
 
 
     #endregion
