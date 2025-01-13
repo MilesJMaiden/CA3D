@@ -30784,7 +30784,8 @@ MonoBehaviour:
   agentScrollViewContent: {fileID: 871270165}
   agentTogglePrefab: {fileID: 4499735928585853147, guid: 4504f4380c14a534ea95730878a41e53, type: 3}
   navMeshSurface: {fileID: 1719529070}
-  agentPrefabs: []
+  agentPrefabs:
+  - {fileID: 8097516218357845145, guid: ecb7454ae79668b448bb151bdf438b32, type: 3}
   terrainGeneratorManager: {fileID: 1719529068}
   featureManager: {fileID: 1719529069}
 --- !u!4 &1936419182
