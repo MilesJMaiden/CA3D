@@ -1,45 +1,77 @@
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.AI;
 
-public class SquirrelBehavior : MonoBehaviour, IAgentBehavior
+public class SquirrelBehavior : BaseAgentBehavior
 {
-    private NavMeshAgent navMeshAgent;
-
-    private void Start()
+    private enum SquirrelState
     {
-        navMeshAgent = GetComponent<NavMeshAgent>();
+        Foraging,
+        ClimbingTree
     }
 
-    public void OnTerrainUpdated(List<FeatureSettings> activeFeatures)
+    private FeatureSettings treeFeature;
+
+    protected override void CustomBehaviorUpdate()
     {
-        // React to terrain updates
+        if (currentState == (State)SquirrelState.Foraging)
+        {
+            ForagingBehavior();
+        }
+        else if (currentState == (State)SquirrelState.ClimbingTree)
+        {
+            ClimbingTreeBehavior();
+        }
     }
 
-    public void ModifyBehavior(TerrainFeatureContext context, List<TerrainGenerationSettings.AgentBehaviorModifier> modifiers)
+    public override void OnTerrainUpdated(List<FeatureSettings> activeFeatures)
     {
+        base.OnTerrainUpdated(activeFeatures);
+        treeFeature = activeFeatures.Find(f => f.featureName == "Trees");
+    }
+
+    public override void ModifyBehavior(TerrainFeatureContext context, List<TerrainGenerationSettings.AgentBehaviorModifier> modifiers)
+    {
+        base.ModifyBehavior(context, modifiers);
+
         foreach (var modifier in modifiers)
         {
-            switch (modifier.modifierName)
+            if (modifier.modifierName == "ClimbTrees" && context.activeFeatures.Exists(f => f.featureName == "Trees"))
             {
-                case "SpeedAdjustment":
-                    navMeshAgent.speed *= modifier.intensity;
-                    break;
-                case "ClimbTrees":
-                    if (context.activeFeatures.Exists(f => f.featureName == "Trees"))
-                    {
-                        ClimbTree();
-                    }
-                    break;
-                default:
-                    Debug.LogWarning($"Unknown modifier: {modifier.modifierName}");
-                    break;
+                ChangeState((State)SquirrelState.ClimbingTree);
             }
         }
     }
 
-    private void ClimbTree()
+    private void ForagingBehavior()
     {
-        // Logic for climbing trees
+        if (!navMeshAgent.hasPath)
+        {
+            Vector3 foragingSpot = GetRandomNavMeshPoint();
+            navMeshAgent.SetDestination(foragingSpot);
+        }
+
+        if (treeFeature != null && Random.Range(0, 100) < 20)
+        {
+            ChangeState((State)SquirrelState.ClimbingTree);
+        }
+    }
+
+    private void ClimbingTreeBehavior()
+    {
+        if (treeFeature != null)
+        {
+            Vector3 treeLocation = GetRandomNavMeshPoint(); // Replace with actual tree logic
+            navMeshAgent.SetDestination(treeLocation);
+
+            if (Vector3.Distance(transform.position, treeLocation) < 1f)
+            {
+                Debug.Log("Climbing tree...");
+                ChangeState(State.Idle);
+            }
+        }
+        else
+        {
+            ChangeState(State.Idle);
+        }
     }
 }

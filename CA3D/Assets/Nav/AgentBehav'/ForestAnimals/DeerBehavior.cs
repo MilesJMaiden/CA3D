@@ -1,46 +1,48 @@
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.AI;
 
-public class DeerBehavior : MonoBehaviour, IAgentBehavior
+public class DeerBehavior : BaseAgentBehavior
 {
-    private NavMeshAgent navMeshAgent;
-
-    private void Start()
+    private enum DeerState
     {
-        navMeshAgent = GetComponent<NavMeshAgent>();
+        AvoidingTrail
     }
 
-    public void OnTerrainUpdated(List<FeatureSettings> activeFeatures)
+    protected override void CustomBehaviorUpdate()
     {
-        // React to terrain updates
+        if (currentState == (State)DeerState.AvoidingTrail)
+        {
+            AvoidingTrailBehavior();
+        }
     }
 
-    public void ModifyBehavior(TerrainFeatureContext context, List<TerrainGenerationSettings.AgentBehaviorModifier> modifiers)
+    public override void ModifyBehavior(TerrainFeatureContext context, List<TerrainGenerationSettings.AgentBehaviorModifier> modifiers)
     {
+        base.ModifyBehavior(context, modifiers);
+
         foreach (var modifier in modifiers)
         {
-            switch (modifier.modifierName)
+            if (modifier.modifierName == "AvoidTrails" && context.hasTrails)
             {
-                case "SpeedAdjustment":
-                    navMeshAgent.speed *= modifier.intensity;
-                    break;
-                case "AvoidTrails":
-                    if (context.hasTrails)
-                    {
-                        navMeshAgent.SetDestination(FindSafeZone());
-                    }
-                    break;
-                default:
-                    Debug.LogWarning($"Unknown modifier: {modifier.modifierName}");
-                    break;
+                ChangeState((State)DeerState.AvoidingTrail);
             }
+        }
+    }
+
+    private void AvoidingTrailBehavior()
+    {
+        Vector3 safeZone = FindSafeZone();
+        navMeshAgent.SetDestination(safeZone);
+
+        if (currentContext != null && !currentContext.hasTrails)
+        {
+            ChangeState(State.Idle);
         }
     }
 
     private Vector3 FindSafeZone()
     {
-        // Logic to locate safe zones
-        return Vector3.zero;
+        // Logic to find a safe zone
+        return GetRandomNavMeshPoint();
     }
 }
