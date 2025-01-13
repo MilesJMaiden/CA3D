@@ -1,46 +1,49 @@
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.AI;
 
-public class WolfBehavior : MonoBehaviour, IAgentBehavior
+public class WolfBehavior : BaseAgentBehavior
 {
-    private NavMeshAgent navMeshAgent;
-
-    private void Start()
+    private enum WolfState
     {
-        navMeshAgent = GetComponent<NavMeshAgent>();
+        Hunting
     }
 
-    public void OnTerrainUpdated(List<FeatureSettings> activeFeatures)
+    protected override void CustomBehaviorUpdate()
     {
-        // React to terrain updates
+        if (currentState == (State)WolfState.Hunting)
+        {
+            HuntingBehavior();
+        }
     }
 
-    public void ModifyBehavior(TerrainFeatureContext context, List<TerrainGenerationSettings.AgentBehaviorModifier> modifiers)
+    public override void ModifyBehavior(TerrainFeatureContext context, List<TerrainGenerationSettings.AgentBehaviorModifier> modifiers)
     {
+        base.ModifyBehavior(context, modifiers);
+
         foreach (var modifier in modifiers)
         {
-            switch (modifier.modifierName)
+            if (modifier.modifierName == "Hunting")
             {
-                case "SpeedAdjustment":
-                    navMeshAgent.speed *= modifier.intensity;
-                    break;
-                case "FavorTrails":
-                    if (context.hasTrails)
-                    {
-                        navMeshAgent.SetDestination(FindTrail());
-                    }
-                    break;
-                default:
-                    Debug.LogWarning($"Unknown modifier: {modifier.modifierName}");
-                    break;
+                ChangeState((State)WolfState.Hunting);
             }
         }
     }
 
-    private Vector3 FindTrail()
+    private void HuntingBehavior()
     {
-        // Logic to locate trails
-        return Vector3.zero;
+        Vector3 preyPosition = FindPrey(); // Replace with actual prey-finding logic
+        navMeshAgent.SetDestination(preyPosition);
+
+        if (Vector3.Distance(transform.position, preyPosition) < 1f)
+        {
+            Debug.Log("Caught prey!");
+            ChangeState(State.Idle);
+        }
+    }
+
+    private Vector3 FindPrey()
+    {
+        // Logic to find prey (e.g., based on tags or proximity)
+        return GetRandomNavMeshPoint();
     }
 }
