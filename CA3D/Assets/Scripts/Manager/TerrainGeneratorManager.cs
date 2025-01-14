@@ -14,6 +14,10 @@ public class TerrainGeneratorManager : MonoBehaviour
 {
     #region Fields and Properties
 
+    [Header("Optional Trail Layer")]
+    [SerializeField]
+    private TerrainLayer trailLayer;
+
     [Header("Terrain Dimensions")]
     [Tooltip("The width of the terrain in units.")]
     [SerializeField, Min(1)]
@@ -34,6 +38,7 @@ public class TerrainGeneratorManager : MonoBehaviour
 
     [Header("Default Materials")]
     [Tooltip("Assign default materials for terrain rendering (Optional).")]
+    // Optional references to terrain materials
 
     [Header("Optional UI Manager (for error reporting)")]
     [SerializeField]
@@ -47,10 +52,8 @@ public class TerrainGeneratorManager : MonoBehaviour
     // Cached mappings for terrain layers to improve performance during texture application
     private Dictionary<TerrainLayer, int> CachedLayerMappings;
 
-    public event System.Action OnTerrainRegenerated;
+    public event Action OnTerrainRegenerated;
     public Vector3 terrainSize => new Vector3(width, height, length);
-
-
 
     #endregion
 
@@ -100,22 +103,27 @@ public class TerrainGeneratorManager : MonoBehaviour
     {
         ValidateAndAdjustDimensions();
 
+        // Re-create or re-initialize the generator to use the latest settings
         if (!InitializeGenerator())
         {
             Debug.LogError("Terrain generator initialization failed. Aborting terrain generation.");
             return;
         }
 
+        // Sync any biome-based layers
         SyncTerrainLayersWithBiomes();
 
+        // If no layers at all, assign a default
         if (m_TerrainData.terrainLayers == null || m_TerrainData.terrainLayers.Length == 0)
         {
             AssignDefaultTerrainLayers();
         }
 
+        // Adjust terrain resolution + size
         m_TerrainData.heightmapResolution = width + 1;
         m_TerrainData.size = new Vector3(width, height, length);
 
+        // 1) Generate the new heightmap (this includes carving if useTrails = true)
         float[,] heights = terrainGenerator.GenerateHeights(width, length);
         if (heights == null)
         {
@@ -123,6 +131,7 @@ public class TerrainGeneratorManager : MonoBehaviour
             return;
         }
 
+        // Apply the heightmap
         m_TerrainData.SetHeights(0, 0, heights);
 
         NativeArray<int> biomeIndices = default;
@@ -130,79 +139,129 @@ public class TerrainGeneratorManager : MonoBehaviour
 
         try
         {
+            // 2) Compute voronoi indices if needed for biome logic
             (biomeIndices, terrainLayerIndices) = ComputeVoronoiIndicesWithJob(heights, width, length);
+
+            // 3) Generate + apply the biome-based splatmap
             GenerateAndApplySplatmap(heights, biomeIndices, terrainLayerIndices, width, length);
 
-            // Apply the trail layer after other terrain layers are generated
+            // 4) Apply the trail layer texture last (only if useTrails = true)
             ApplyTrailLayer(heights);
         }
         finally
         {
+            // Dispose arrays
             if (biomeIndices.IsCreated) biomeIndices.Dispose();
             if (terrainLayerIndices.IsCreated) terrainLayerIndices.Dispose();
         }
     }
 
+    #endregion
+
+    #region Private / Internal Methods
+
+    /// <summary>
+    /// Applies the trail texture layer on top of any biome splatmap, but only if 'useTrails' is true.
+    /// </summary>
     private void ApplyTrailLayer(float[,] heights)
     {
-        if (!terrainSettings.useTrails || terrainSettings.trailLayer == null)
+        // 0) Skip painting if user disabled trails
+        if (!terrainSettings.useTrails)
         {
-            Debug.LogWarning("Trails are disabled or no trail layer assigned.");
+            Debug.Log("Trails are disabled. Skipping trail layer painting.");
             return;
         }
 
+        // 1) Ensure a TrailLayer asset is assigned
+        if (trailLayer == null)
+        {
+            Debug.LogWarning("No Trail Layer assigned in TerrainGeneratorManager. Cannot paint the trail!");
+            return;
+        }
+
+        // 2) Ensure trail layer is at the end of the layer array (so it's on top visually)
+        TerrainLayer[] existingLayers = m_TerrainData.terrainLayers;
+        List<TerrainLayer> layerList = new List<TerrainLayer>(existingLayers ?? new TerrainLayer[0]);
+
+        // Remove if present
+        if (layerList.Contains(trailLayer))
+        {
+            layerList.Remove(trailLayer);
+        }
+        // Re-add at the end
+        layerList.Add(trailLayer);
+        m_TerrainData.terrainLayers = layerList.ToArray();
+
+        // 3) Find the index of the trail layer
+        int trailLayerIndex = Array.IndexOf(m_TerrainData.terrainLayers, trailLayer);
+        if (trailLayerIndex < 0)
+        {
+            Debug.LogWarning("Trail layer index not found. Cannot apply trail texture.");
+            return;
+        }
+
+        // 4) Retrieve the current splatmap
         int resolutionX = heights.GetLength(0);
         int resolutionY = heights.GetLength(1);
-
-        float2 startPoint = new float2(terrainSettings.trailStartPoint.x * resolutionX, terrainSettings.trailStartPoint.y * resolutionY);
-        float2 endPoint = new float2(terrainSettings.trailEndPoint.x * resolutionX, terrainSettings.trailEndPoint.y * resolutionY);
-        float trailWidth = terrainSettings.trailWidth;
-        float randomness = terrainSettings.trailRandomness;
-
-        // Create a new splatmap for trails
-        int layerIndex = Array.IndexOf(m_TerrainData.terrainLayers, terrainSettings.trailLayer);
-        if (layerIndex < 0)
-        {
-            Debug.LogError("Trail layer is not found in terrain layers. Ensure it is added in SyncTerrainLayersWithBiomes.");
-            return;
-        }
-
         float[,,] splatmap = m_TerrainData.GetAlphamaps(0, 0, resolutionX, resolutionY);
 
+        // 5) Calculate line parameters
+        float2 startPoint = new float2(
+            terrainSettings.trailStartPoint.x * resolutionX,
+            terrainSettings.trailStartPoint.y * resolutionY
+        );
+        float2 endPoint = new float2(
+            terrainSettings.trailEndPoint.x * resolutionX,
+            terrainSettings.trailEndPoint.y * resolutionY
+        );
+
+        float trailWidth = terrainSettings.trailWidth;
+        float randomness = terrainSettings.trailRandomness;
+        float totalDist = math.distance(startPoint, endPoint);
+
+        // 6) Paint the trail
         for (int y = 0; y < resolutionY; y++)
         {
             for (int x = 0; x < resolutionX; x++)
             {
                 float2 current = new float2(x, y);
-                float totalDist = math.distance(startPoint, endPoint);
 
-                // Calculate the parameter along the line
+                // Param along the line
                 float distAlongLine = math.distance(startPoint, current);
-                float t = totalDist > 0f ? math.clamp(distAlongLine / totalDist, 0f, 1f) : 0f;
+                float t = (totalDist > 0f)
+                    ? math.clamp(distAlongLine / totalDist, 0f, 1f)
+                    : 0f;
 
-                // Compute center point along the line, add randomness
+                // Interpolate center, add random wiggle
                 float2 lineCenter = math.lerp(startPoint, endPoint, t);
                 lineCenter.x += math.sin(lineCenter.y * randomness) * (trailWidth * 0.25f);
 
-                // Calculate distance to the line
+                // Distance to that line
                 float distToLine = math.distance(current, lineCenter);
+
                 if (distToLine < trailWidth)
                 {
-                    // Add trail weight to the appropriate layer
-                    splatmap[x, y, layerIndex] = 1f;
+                    // Fade out edges
+                    float fade = 1f - math.smoothstep(0f, trailWidth, distToLine);
+                    // Keep the maximum so the trail overrides or is “on top”
+                    splatmap[x, y, trailLayerIndex] = math.max(splatmap[x, y, trailLayerIndex], fade);
                 }
             }
         }
 
+        // 7) Normalize and apply
         NormalizeSplatmap(splatmap);
         m_TerrainData.SetAlphamaps(0, 0, splatmap);
-        Debug.Log("Trail layer applied to terrain.");
+
+        Debug.Log("Trail layer successfully painted onto the terrain (priority on top).");
     }
 
-
+    /// <summary>
+    /// Assigns a default layer if no layers exist.
+    /// </summary>
     private void AssignDefaultTerrainLayers()
     {
-        var defaultLayer = Resources.Load<TerrainLayer>("DefaultTerrainLayer"); // Replace with your default layer
+        var defaultLayer = Resources.Load<TerrainLayer>("DefaultTerrainLayer"); // Must match your asset name
         if (defaultLayer == null)
         {
             Debug.LogError("Default terrain layer not found. Please create a 'DefaultTerrainLayer' asset in Resources.");
@@ -213,34 +272,9 @@ public class TerrainGeneratorManager : MonoBehaviour
         Debug.Log("Assigned default terrain layer.");
     }
 
-
-    private void ApplyBiomeTerrainLayers(float[,] heights, int width, int length)
-    {
-        NativeArray<int> biomeIndices = default;
-        NativeArray<int> terrainLayerIndices = default;
-
-        try
-        {
-            // Compute Voronoi indices
-            (biomeIndices, terrainLayerIndices) = ComputeVoronoiIndicesWithJob(heights, width, length);
-
-            if (!biomeIndices.IsCreated || !terrainLayerIndices.IsCreated)
-            {
-                Debug.LogError("Failed to compute biome or terrain layer indices.");
-                return;
-            }
-
-            // Generate and apply the splatmap
-            GenerateAndApplySplatmap(heights, biomeIndices, terrainLayerIndices, width, length);
-        }
-        finally
-        {
-            // Dispose NativeArrays to avoid memory leaks
-            if (biomeIndices.IsCreated) biomeIndices.Dispose();
-            if (terrainLayerIndices.IsCreated) terrainLayerIndices.Dispose();
-        }
-    }
-
+    /// <summary>
+    /// Generates a biome-based splatmap and applies it to the TerrainData, based on Voronoi indices and thresholds.
+    /// </summary>
     private void GenerateAndApplySplatmap(
         float[,] heights,
         NativeArray<int> biomeIndices,
@@ -258,6 +292,7 @@ public class TerrainGeneratorManager : MonoBehaviour
         int layerCount = layers.Length;
         float[,,] splatmap = new float[width, length, layerCount];
 
+        // Assign weights based on biome thresholds
         for (int x = 0; x < width; x++)
         {
             for (int y = 0; y < length; y++)
@@ -279,9 +314,11 @@ public class TerrainGeneratorManager : MonoBehaviour
         Debug.Log("Splatmap applied with biome-based textures.");
     }
 
-
+    /// <summary>
+    /// Schedules and runs a VoronoiBiomeJob to compute biome indices (and/or layer indices) in parallel.
+    /// </summary>
     private (NativeArray<int> biomeIndices, NativeArray<int> terrainLayerIndices)
-    ComputeVoronoiIndicesWithJob(float[,] heights2D, int width, int length)
+        ComputeVoronoiIndicesWithJob(float[,] heights2D, int width, int length)
     {
         int totalPixels = width * length;
 
@@ -303,11 +340,11 @@ public class TerrainGeneratorManager : MonoBehaviour
                 }
             }
 
-            // Generate Voronoi points and thresholds
+            // Generate Voronoi points & thresholds
             voronoiPoints = GenerateVoronoiPoints(terrainSettings.voronoiCellCount, width, length);
             biomeThresholds = GenerateBiomeThresholds();
 
-            // Configure and schedule the VoronoiBiomeJob
+            // Configure & schedule
             var job = new VoronoiBiomeJob
             {
                 width = width,
@@ -326,13 +363,16 @@ public class TerrainGeneratorManager : MonoBehaviour
         }
         finally
         {
-            // Dispose temporary arrays
+            // Cleanup
             if (heightsNative.IsCreated) heightsNative.Dispose();
             if (voronoiPoints.IsCreated) voronoiPoints.Dispose();
             if (biomeThresholds.IsCreated) biomeThresholds.Dispose();
         }
     }
 
+    /// <summary>
+    /// Applies the given biome thresholds to decide which terrain layers get weight at each pixel.
+    /// </summary>
     private void AssignLayerWeights(
         float[,,] splatmap,
         int x,
@@ -346,6 +386,9 @@ public class TerrainGeneratorManager : MonoBehaviour
         AddWeightIfInRange(splatmap, x, y, layers, thresholds.layer3, thresholds.minHeight3, thresholds.maxHeight3, heightValue);
     }
 
+    /// <summary>
+    /// Adds weight to the specified layer if heightValue is in [minHeight, maxHeight].
+    /// </summary>
     private void AddWeightIfInRange(
         float[,,] splatmap,
         int x,
@@ -368,128 +411,8 @@ public class TerrainGeneratorManager : MonoBehaviour
         }
     }
 
-    private void SyncTerrainLayersWithBiomes()
-    {
-        if (terrainSettings.biomes == null || terrainSettings.biomes.Count == 0)
-        {
-            Debug.LogError("No biomes are defined in terrain settings. Cannot synchronize terrain layers.");
-            return;
-        }
-
-        List<TerrainLayer> layers = new List<TerrainLayer>();
-        foreach (var biome in terrainSettings.biomes)
-        {
-            if (biome.thresholds.layer1 != null) layers.Add(biome.thresholds.layer1);
-            if (biome.thresholds.layer2 != null) layers.Add(biome.thresholds.layer2);
-            if (biome.thresholds.layer3 != null) layers.Add(biome.thresholds.layer3);
-        }
-
-        // Add or remove trail layer based on trail settings
-        if (terrainSettings.useTrails && terrainSettings.trailLayer != null)
-        {
-            if (!layers.Contains(terrainSettings.trailLayer))
-            {
-                layers.Add(terrainSettings.trailLayer);
-                Debug.Log("Trail layer applied.");
-            }
-        }
-        else if (terrainSettings.trailLayer != null)
-        {
-            layers.Remove(terrainSettings.trailLayer);
-            Debug.Log("Trail layer removed.");
-        }
-
-        m_TerrainData.terrainLayers = layers.Distinct().ToArray();
-        Debug.Log($"Synchronized {m_TerrainData.terrainLayers.Length} terrain layers.");
-    }
-
-
-    private NativeArray<float2> GenerateVoronoiPoints(int cellCount, int width, int length)
-    {
-        NativeArray<float2> points = new NativeArray<float2>(cellCount, Allocator.TempJob);
-
-        if (terrainSettings.voronoiDistributionMode == TerrainGenerationSettings.DistributionMode.Grid)
-        {
-            int gridSize = (int)math.sqrt(cellCount);
-            float cellWidth = width / (float)gridSize;
-            float cellHeight = length / (float)gridSize;
-
-            for (int i = 0; i < cellCount; i++)
-            {
-                int x = i % gridSize;
-                int y = i / gridSize;
-                points[i] = new float2(
-                    x * cellWidth + cellWidth * 0.5f,
-                    y * cellHeight + cellHeight * 0.5f
-                );
-            }
-        }
-        else if (terrainSettings.voronoiDistributionMode == TerrainGenerationSettings.DistributionMode.Random)
-        {
-            Unity.Mathematics.Random rng = new Unity.Mathematics.Random((uint)terrainSettings.randomSeed);
-            for (int i = 0; i < cellCount; i++)
-            {
-                points[i] = new float2(rng.NextFloat(0, width), rng.NextFloat(0, length));
-            }
-        }
-
-        return points;
-    }
-
-    private NativeArray<float3x3> GenerateBiomeThresholds()
-    {
-        NativeArray<float3x3> thresholds = new NativeArray<float3x3>(terrainSettings.biomes.Count, Allocator.TempJob);
-
-        for (int i = 0; i < terrainSettings.biomes.Count; i++)
-        {
-            var biome = terrainSettings.biomes[i];
-            thresholds[i] = new float3x3(
-                new float3(biome.thresholds.minHeight1, biome.thresholds.maxHeight1, 0),
-                new float3(biome.thresholds.minHeight2, biome.thresholds.maxHeight2, 0),
-                new float3(biome.thresholds.minHeight3, biome.thresholds.maxHeight3, 0)
-            );
-        }
-
-        return thresholds;
-    }
-
-
-    #endregion
-
-    #region Private Methods
-
     /// <summary>
-    /// Initializes the Terrain and TerrainData components.
-    /// </summary>
-    private void InitializeTerrainComponents()
-    {
-        m_Terrain = GetComponent<Terrain>();
-        if (m_Terrain.terrainData == null)
-        {
-            m_TerrainData = new TerrainData
-            {
-                heightmapResolution = width + 1,
-                size = new Vector3(width, height, length)
-            };
-            m_Terrain.terrainData = m_TerrainData;
-            Debug.Log("TerrainData dynamically created.");
-        }
-        else
-        {
-            m_TerrainData = m_Terrain.terrainData;
-        }
-
-        // Reset terrain layers to avoid layer mismatches
-        m_TerrainData.terrainLayers = null;
-
-        // Optionally, match width/length to the alphamap resolution if needed
-        int alphamapResolution = m_TerrainData.alphamapResolution;
-        width = alphamapResolution;
-        length = alphamapResolution;
-    }
-
-    /// <summary>
-    /// Calculates and enforces that each pixel's total weights sum to 1.0.
+    /// Ensures each pixel's total layer weight sums to 1.0.
     /// </summary>
     private void NormalizeSplatmap(float[,,] splatmap)
     {
@@ -507,7 +430,8 @@ public class TerrainGeneratorManager : MonoBehaviour
                     sum += splatmap[x, y, l];
                 }
 
-                if (sum > 0.0001f)
+                // Normalize
+                if (sum > 1e-5f)
                 {
                     for (int l = 0; l < layers; l++)
                     {
@@ -519,7 +443,134 @@ public class TerrainGeneratorManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Initializes the terrain generator based on the current settings.
+    /// Synchronizes terrain layers with any biome layers so that we have all required TerrainLayers in the TerrainData.
+    /// </summary>
+    private void SyncTerrainLayersWithBiomes()
+    {
+        if (terrainSettings.biomes == null || terrainSettings.biomes.Count == 0)
+        {
+            Debug.LogError("No biomes are defined in terrain settings. Cannot synchronize terrain layers.");
+            return;
+        }
+
+        List<TerrainLayer> layers = new List<TerrainLayer>();
+        foreach (var biome in terrainSettings.biomes)
+        {
+            if (biome.thresholds.layer1 != null) layers.Add(biome.thresholds.layer1);
+            if (biome.thresholds.layer2 != null) layers.Add(biome.thresholds.layer2);
+            if (biome.thresholds.layer3 != null) layers.Add(biome.thresholds.layer3);
+        }
+
+        m_TerrainData.terrainLayers = layers.Distinct().ToArray();
+        Debug.Log($"Synchronized {m_TerrainData.terrainLayers.Length} terrain layers.");
+    }
+
+    /// <summary>
+    /// Creates Voronoi points for the biome generation (grid or random).
+    /// </summary>
+    private NativeArray<float2> GenerateVoronoiPoints(int cellCount, int width, int length)
+    {
+        NativeArray<float2> points = new NativeArray<float2>(cellCount, Allocator.TempJob);
+
+        if (terrainSettings.voronoiDistributionMode == TerrainGenerationSettings.DistributionMode.Grid)
+        {
+            int gridSize = (int)math.sqrt(cellCount);
+            float cellWidth = width / (float)gridSize;
+            float cellHeight = length / (float)gridSize;
+
+            for (int i = 0; i < cellCount; i++)
+            {
+                int cx = i % gridSize;
+                int cy = i / gridSize;
+                points[i] = new float2(
+                    cx * cellWidth + cellWidth * 0.5f,
+                    cy * cellHeight + cellHeight * 0.5f
+                );
+            }
+        }
+        else if (terrainSettings.voronoiDistributionMode == TerrainGenerationSettings.DistributionMode.Random)
+        {
+            Unity.Mathematics.Random rng = new Unity.Mathematics.Random((uint)terrainSettings.randomSeed);
+            for (int i = 0; i < cellCount; i++)
+            {
+                points[i] = new float2(rng.NextFloat(0, width), rng.NextFloat(0, length));
+            }
+        }
+
+        return points;
+    }
+
+    /// <summary>
+    /// Builds a NativeArray of float3x3 to represent min/max heights for each biome.
+    /// </summary>
+    private NativeArray<float3x3> GenerateBiomeThresholds()
+    {
+        NativeArray<float3x3> thresholds = new NativeArray<float3x3>(terrainSettings.biomes.Count, Allocator.TempJob);
+
+        for (int i = 0; i < terrainSettings.biomes.Count; i++)
+        {
+            var biome = terrainSettings.biomes[i];
+            thresholds[i] = new float3x3(
+                new float3(biome.thresholds.minHeight1, biome.thresholds.maxHeight1, 0),
+                new float3(biome.thresholds.minHeight2, biome.thresholds.maxHeight2, 0),
+                new float3(biome.thresholds.minHeight3, biome.thresholds.maxHeight3, 0)
+            );
+        }
+
+        return thresholds;
+    }
+
+    /// <summary>
+    /// Initializes the Terrain and TerrainData components if not already set.
+    /// </summary>
+    private void InitializeTerrainComponents()
+    {
+        m_Terrain = GetComponent<Terrain>();
+        if (m_Terrain.terrainData == null)
+        {
+            // Create a new TerrainData
+            m_TerrainData = new TerrainData
+            {
+                heightmapResolution = width + 1,
+                size = new Vector3(width, height, length)
+            };
+            m_Terrain.terrainData = m_TerrainData;
+            Debug.Log("TerrainData dynamically created.");
+        }
+        else
+        {
+            m_TerrainData = m_Terrain.terrainData;
+        }
+
+        // Reset terrain layers to avoid mismatches on first load
+        m_TerrainData.terrainLayers = null;
+
+        // Optionally match the alphamap resolution to the width/length
+        int alphamapResolution = m_TerrainData.alphamapResolution;
+        width = alphamapResolution;
+        length = alphamapResolution;
+    }
+
+    /// <summary>
+    /// Ensures that if midpoint displacement is used, the width/length follow 2^n + 1.
+    /// </summary>
+    private void ValidateAndAdjustDimensions()
+    {
+        if (terrainSettings != null && terrainSettings.useMidPointDisplacement)
+        {
+            width = AdjustToPowerOfTwoPlusOne(width);
+            length = AdjustToPowerOfTwoPlusOne(length);
+        }
+    }
+
+    private int AdjustToPowerOfTwoPlusOne(int value)
+    {
+        int power = Mathf.CeilToInt(Mathf.Log(value - 1, 2));
+        return (int)Mathf.Pow(2, power) + 1;
+    }
+
+    /// <summary>
+    /// Initializes the terrain generator from the current settings.
     /// </summary>
     private bool InitializeGenerator()
     {
@@ -534,29 +585,7 @@ public class TerrainGeneratorManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Validates and adjusts the terrain dimensions to ensure compatibility with midpoint displacement.
-    /// </summary>
-    private void ValidateAndAdjustDimensions()
-    {
-        if (terrainSettings != null && terrainSettings.useMidPointDisplacement)
-        {
-            width = AdjustToPowerOfTwoPlusOne(width);
-            length = AdjustToPowerOfTwoPlusOne(length);
-        }
-    }
-
-
-    /// <summary>
-    /// Adjusts a dimension value to the nearest valid size (2^n + 1).
-    /// </summary>
-    private int AdjustToPowerOfTwoPlusOne(int value)
-    {
-        int power = Mathf.CeilToInt(Mathf.Log(value - 1, 2));
-        return (int)Mathf.Pow(2, power) + 1;
-    }
-
-    /// <summary>
-    /// Reports an error message to the Unity console and optionally to the UI manager.
+    /// Logs or reports an error to the UI manager if present.
     /// </summary>
     private void ReportError(string message)
     {

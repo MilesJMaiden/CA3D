@@ -13,7 +13,6 @@ public static class FeatureModifierFactory
 
         if (settings.useTrails) modifiers.Add(new TrailModifier());
         if (settings.useLakes) modifiers.Add(new LakeModifier());
-        if (settings.useErosion) modifiers.Add(new ThermalErosionModifier());
 
         return modifiers;
     }

@@ -6,8 +6,7 @@ using Unity.Mathematics;
 public class VoronoiBiomesModifier : IHeightModifier
 {
     /// <summary>
-    /// Applies Voronoi-based biome modifications directly to a 2D float array of terrain heights.
-    /// Properly disposes all NativeArrays, ensuring no memory leaks occur.
+    /// Synchronous method from IHeightModifier that modifies a 2D float array of heights directly.
     /// </summary>
     public void ModifyHeight(float[,] heights, TerrainGenerationSettings settings)
     {
@@ -21,7 +20,7 @@ public class VoronoiBiomesModifier : IHeightModifier
 
         try
         {
-            // Flatten the 2D heights array into a 1D NativeArray
+            // Flatten 2D -> 1D
             for (int x = 0; x < width; x++)
             {
                 for (int y = 0; y < length; y++)
@@ -30,11 +29,19 @@ public class VoronoiBiomesModifier : IHeightModifier
                 }
             }
 
-            // Schedule the Voronoi biome job and wait for completion
-            JobHandle handle = ScheduleJob(heightsNative, biomeIndices, terrainLayers, width, length, settings, default);
-            handle.Complete();
+            // Schedule the Voronoi job
+            JobHandle handle = ScheduleJob(
+                heightsNative,
+                biomeIndices,
+                terrainLayers,
+                width,
+                length,
+                settings,
+                default
+            );
+            handle.Complete(); // Wait for completion
 
-            // Copy the job results back into the original 2D array
+            // Copy back results
             for (int x = 0; x < width; x++)
             {
                 for (int y = 0; y < length; y++)
@@ -45,17 +52,68 @@ public class VoronoiBiomesModifier : IHeightModifier
         }
         finally
         {
-            // Dispose all allocated memory in the "finally" to avoid leaks even if exceptions occur
+            // Dispose all
             if (heightsNative.IsCreated) heightsNative.Dispose();
             if (biomeIndices.IsCreated) biomeIndices.Dispose();
             if (terrainLayers.IsCreated) terrainLayers.Dispose();
         }
     }
 
-    /// <summary>
-    /// Creates and schedules the VoronoiBiomeJob. Also disposes the temporary NativeArrays (Voronoi points & thresholds)
-    /// once the job has been scheduled, attaching their disposal to the jobHandle itself (Dispose(jobHandle)).
-    /// </summary>
+    // ---------------------------------------------------------------------
+    // 1) This is the interface method your code complains is "not implemented."
+    //    We create it here, matching EXACTLY the signature in IHeightModifier.
+    // ---------------------------------------------------------------------
+    public JobHandle ScheduleJob(
+        NativeArray<float> heightsNative,
+        int width,
+        int length,
+        TerrainGenerationSettings settings,
+        JobHandle dependency)
+    {
+        // If the user calls this simpler signature, we create & dispose
+        // the biomeIndices + terrainLayerIndices automatically.
+
+        ValidateSettings(settings);
+
+        // Create additional arrays needed by Voronoi
+        NativeArray<int> biomeIndices = new NativeArray<int>(width * length, Allocator.TempJob);
+        NativeArray<int> terrainLayers = new NativeArray<int>(width * length, Allocator.TempJob);
+
+        // Create Voronoi points & thresholds
+        NativeArray<float2> voronoiPoints = GenerateVoronoiPoints(settings, width, length);
+        NativeArray<float3x3> biomeThresh = GenerateBiomeThresholds(settings);
+
+        // Configure the job
+        var job = new VoronoiBiomeJob
+        {
+            width = width,
+            length = length,
+            heights = heightsNative,
+            voronoiPoints = voronoiPoints,
+            biomeThresholds = biomeThresh,
+            biomeIndices = biomeIndices,
+            terrainLayerIndices = terrainLayers
+        };
+
+        // Schedule it
+        JobHandle jobHandle = job.Schedule(width * length, 64, dependency);
+
+        // Dispose Voronoi arrays after job
+        voronoiPoints.Dispose(jobHandle);
+        biomeThresh.Dispose(jobHandle);
+
+        // Also dispose these arrays after job (since we created them)
+        biomeIndices.Dispose(jobHandle);
+        terrainLayers.Dispose(jobHandle);
+
+        return jobHandle;
+    }
+
+    // ---------------------------------------------------------------------
+    // 2) This is your existing "bigger" method that receives biomeIndices
+    //    & terrainLayerIndices as parameters. It can remain "private" or
+    //    "internal," or if you prefer, keep it public.  
+    // ---------------------------------------------------------------------
     public JobHandle ScheduleJob(
         NativeArray<float> heights,
         NativeArray<int> biomeIndices,
@@ -86,13 +144,14 @@ public class VoronoiBiomesModifier : IHeightModifier
         // Schedule the job
         JobHandle jobHandle = job.Schedule(width * length, 64, dependency);
 
-        // Dispose of the temporary arrays *after* the job completes
+        // Dispose of the temporary arrays after the job completes
         voronoiPoints.Dispose(jobHandle);
         biomeThresh.Dispose(jobHandle);
 
         return jobHandle;
     }
 
+    // Existing code (GenerateVoronoiPoints, GenerateBiomeThresholds, etc.) ...
     private NativeArray<float2> GenerateVoronoiPoints(TerrainGenerationSettings settings, int width, int length)
     {
         int cellCount = math.clamp(settings.voronoiCellCount, 1, settings.biomes.Count);

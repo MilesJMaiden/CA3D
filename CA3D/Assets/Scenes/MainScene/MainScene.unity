@@ -27545,6 +27545,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 88b529324c7080344a6e9e64f956b05a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  trailLayer: {fileID: 8574412962073106934, guid: d510c15ac79121b4a8a72e0ff7113f92, type: 2}
   width: 256
   length: 256
   height: 50
