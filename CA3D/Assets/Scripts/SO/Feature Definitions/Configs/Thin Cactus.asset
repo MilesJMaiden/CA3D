@@ -17,7 +17,7 @@ MonoBehaviour:
   prefab: {fileID: 8141470666889690656, guid: be1e94ef9561f9946aaa80bfce69635b, type: 3}
   heightRange: {x: 0.1, y: 1}
   slopeRange: {x: 0, y: 15}
-  spawnProbability: 0.175
+  spawnProbability: 0.075
   requiresBiome: 0
   biomeIndex: -1
   scaleRange: {x: 1.5, y: 3}
