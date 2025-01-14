@@ -86,6 +86,8 @@ public class TerrainGenerationSettings : ScriptableObject
     public Vector2 trailEndPoint = new Vector2(0.8f, 0.2f);
     public float trailWidth = 2f;
     public float trailRandomness = 0.2f;
+    public TerrainLayer trailLayer;
+
 
     [Header("Erosion Settings")]
     public bool useErosion;

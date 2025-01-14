@@ -125,26 +125,79 @@ public class TerrainGeneratorManager : MonoBehaviour
 
         m_TerrainData.SetHeights(0, 0, heights);
 
-        // Initialize NativeArrays with default values
         NativeArray<int> biomeIndices = default;
         NativeArray<int> terrainLayerIndices = default;
 
         try
         {
-            // Assign values to NativeArrays by computing Voronoi indices
             (biomeIndices, terrainLayerIndices) = ComputeVoronoiIndicesWithJob(heights, width, length);
-
-            // Apply textures using the computed indices
             GenerateAndApplySplatmap(heights, biomeIndices, terrainLayerIndices, width, length);
+
+            // Apply the trail layer after other terrain layers are generated
+            ApplyTrailLayer(heights);
         }
         finally
         {
-            // Ensure disposal of NativeArrays
             if (biomeIndices.IsCreated) biomeIndices.Dispose();
             if (terrainLayerIndices.IsCreated) terrainLayerIndices.Dispose();
         }
     }
 
+    private void ApplyTrailLayer(float[,] heights)
+    {
+        if (!terrainSettings.useTrails || terrainSettings.trailLayer == null)
+        {
+            Debug.LogWarning("Trails are disabled or no trail layer assigned.");
+            return;
+        }
+
+        int resolutionX = heights.GetLength(0);
+        int resolutionY = heights.GetLength(1);
+
+        float2 startPoint = new float2(terrainSettings.trailStartPoint.x * resolutionX, terrainSettings.trailStartPoint.y * resolutionY);
+        float2 endPoint = new float2(terrainSettings.trailEndPoint.x * resolutionX, terrainSettings.trailEndPoint.y * resolutionY);
+        float trailWidth = terrainSettings.trailWidth;
+        float randomness = terrainSettings.trailRandomness;
+
+        // Create a new splatmap for trails
+        int layerIndex = Array.IndexOf(m_TerrainData.terrainLayers, terrainSettings.trailLayer);
+        if (layerIndex < 0)
+        {
+            Debug.LogError("Trail layer is not found in terrain layers. Ensure it is added in SyncTerrainLayersWithBiomes.");
+            return;
+        }
+
+        float[,,] splatmap = m_TerrainData.GetAlphamaps(0, 0, resolutionX, resolutionY);
+
+        for (int y = 0; y < resolutionY; y++)
+        {
+            for (int x = 0; x < resolutionX; x++)
+            {
+                float2 current = new float2(x, y);
+                float totalDist = math.distance(startPoint, endPoint);
+
+                // Calculate the parameter along the line
+                float distAlongLine = math.distance(startPoint, current);
+                float t = totalDist > 0f ? math.clamp(distAlongLine / totalDist, 0f, 1f) : 0f;
+
+                // Compute center point along the line, add randomness
+                float2 lineCenter = math.lerp(startPoint, endPoint, t);
+                lineCenter.x += math.sin(lineCenter.y * randomness) * (trailWidth * 0.25f);
+
+                // Calculate distance to the line
+                float distToLine = math.distance(current, lineCenter);
+                if (distToLine < trailWidth)
+                {
+                    // Add trail weight to the appropriate layer
+                    splatmap[x, y, layerIndex] = 1f;
+                }
+            }
+        }
+
+        NormalizeSplatmap(splatmap);
+        m_TerrainData.SetAlphamaps(0, 0, splatmap);
+        Debug.Log("Trail layer applied to terrain.");
+    }
 
 
     private void AssignDefaultTerrainLayers()
@@ -326,35 +379,29 @@ public class TerrainGeneratorManager : MonoBehaviour
         List<TerrainLayer> layers = new List<TerrainLayer>();
         foreach (var biome in terrainSettings.biomes)
         {
-            if (biome.thresholds.layer1 != null)
+            if (biome.thresholds.layer1 != null) layers.Add(biome.thresholds.layer1);
+            if (biome.thresholds.layer2 != null) layers.Add(biome.thresholds.layer2);
+            if (biome.thresholds.layer3 != null) layers.Add(biome.thresholds.layer3);
+        }
+
+        // Add or remove trail layer based on trail settings
+        if (terrainSettings.useTrails && terrainSettings.trailLayer != null)
+        {
+            if (!layers.Contains(terrainSettings.trailLayer))
             {
-                layers.Add(biome.thresholds.layer1);
-                Debug.Log($"Added Layer 1 for biome {biome.name}: {biome.thresholds.layer1.name}");
+                layers.Add(terrainSettings.trailLayer);
+                Debug.Log("Trail layer applied.");
             }
-            if (biome.thresholds.layer2 != null)
-            {
-                layers.Add(biome.thresholds.layer2);
-                Debug.Log($"Added Layer 2 for biome {biome.name}: {biome.thresholds.layer2.name}");
-            }
-            if (biome.thresholds.layer3 != null)
-            {
-                layers.Add(biome.thresholds.layer3);
-                Debug.Log($"Added Layer 3 for biome {biome.name}: {biome.thresholds.layer3.name}");
-            }
+        }
+        else if (terrainSettings.trailLayer != null)
+        {
+            layers.Remove(terrainSettings.trailLayer);
+            Debug.Log("Trail layer removed.");
         }
 
         m_TerrainData.terrainLayers = layers.Distinct().ToArray();
-
-        if (m_TerrainData.terrainLayers.Length == 0)
-        {
-            Debug.LogError("No valid terrain layers were collected from biomes.");
-        }
-        else
-        {
-            Debug.Log($"Synchronized {m_TerrainData.terrainLayers.Length} terrain layers.");
-        }
+        Debug.Log($"Synchronized {m_TerrainData.terrainLayers.Length} terrain layers.");
     }
-
 
 
     private NativeArray<float2> GenerateVoronoiPoints(int cellCount, int width, int length)

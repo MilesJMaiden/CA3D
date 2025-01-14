@@ -91,6 +91,7 @@ MonoBehaviour:
   trailEndPoint: {x: 0.8, y: 0.1}
   trailWidth: 3
   trailRandomness: 2
+  trailLayer: {fileID: 8574412962073106934, guid: d510c15ac79121b4a8a72e0ff7113f92, type: 2}
   useErosion: 0
   talusAngle: 0.1
   erosionIterations: 1
@@ -124,3 +125,5 @@ MonoBehaviour:
   featureCAIterations: 2
   featureNeighborThreshold: 3
   globalFeatureDensity: 1
+  enableAgents: 0
+  agentSettings: []
