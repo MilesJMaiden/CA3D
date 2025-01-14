@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.AI;
 using UnityEngine.UI;
+using TMPro;
 using System.Collections.Generic;
 using Unity.AI.Navigation;
 
@@ -28,8 +29,13 @@ public class NavMeshManager : MonoBehaviour
     [Tooltip("List of agent prefabs that can be spawned.")]
     public List<GameObject> agentPrefabs;
 
+    [Header("Max Agents Settings")]
+    [Tooltip("Input field to dynamically set the maximum number of agents per type.")]
+    public TMP_InputField maxAgentsInputField;
+
+    private int maxAgentsPerType = 4;
     private Dictionary<string, Toggle> agentToggles = new Dictionary<string, Toggle>();
-    private List<GameObject> activeAgents = new List<GameObject>();
+    private Dictionary<string, List<GameObject>> activeAgentsByType = new Dictionary<string, List<GameObject>>();
 
     [Header("Dependencies")]
     [Tooltip("Reference to the Terrain Generator Manager.")]
@@ -54,6 +60,12 @@ public class NavMeshManager : MonoBehaviour
         {
             isNavMeshEnabled = true;
             BakeNavMesh();
+        }
+
+        if (maxAgentsInputField != null)
+        {
+            maxAgentsInputField.text = maxAgentsPerType.ToString();
+            maxAgentsInputField.onValueChanged.AddListener(OnMaxAgentsInputChanged);
         }
     }
 
@@ -91,6 +103,8 @@ public class NavMeshManager : MonoBehaviour
     {
         foreach (var agentPrefab in agentPrefabs)
         {
+            string agentName = agentPrefab.name;
+
             // Instantiate the agent toggle prefab as a child of the scroll view content
             GameObject toggleObj = Instantiate(agentTogglePrefab, agentScrollViewContent.transform);
 
@@ -111,7 +125,6 @@ public class NavMeshManager : MonoBehaviour
             }
 
             // Set the name of the prefab as the label's text
-            string agentName = agentPrefab.name;
             label.text = agentName;
 
             // Ensure the toggle starts in an "off" state
@@ -122,19 +135,21 @@ public class NavMeshManager : MonoBehaviour
             {
                 if (isOn)
                 {
-                    SpawnAgent(agentPrefab);
+                    SpawnAgents(agentPrefab, maxAgentsPerType);
                 }
                 else
                 {
-                    RemoveAgent(agentPrefab);
+                    RemoveAgents(agentPrefab);
                 }
             });
 
             // Store the toggle in a dictionary for future reference
             agentToggles.Add(agentName, agentToggle);
+
+            // Initialize the active agents list for this type
+            activeAgentsByType[agentName] = new List<GameObject>();
         }
     }
-
 
     private void OnTerrainRegenerated()
     {
@@ -143,14 +158,17 @@ public class NavMeshManager : MonoBehaviour
             BakeNavMesh();
         }
 
-        foreach (var agent in activeAgents)
+        foreach (var agentList in activeAgentsByType.Values)
         {
-            if (agent == null) continue;
-
-            var agentBehavior = agent.GetComponent<IAgentBehavior>();
-            if (agentBehavior != null)
+            foreach (var agent in agentList)
             {
-                agentBehavior.OnTerrainUpdated(featureManager.GetFeatures());
+                if (agent == null) continue;
+
+                var agentBehavior = agent.GetComponent<IAgentBehavior>();
+                if (agentBehavior != null)
+                {
+                    agentBehavior.OnTerrainUpdated(featureManager.GetFeatures());
+                }
             }
         }
     }
@@ -167,36 +185,32 @@ public class NavMeshManager : MonoBehaviour
         Debug.Log("NavMesh baked successfully.");
     }
 
-    private void SpawnAgent(GameObject agentPrefab)
+    private void SpawnAgents(GameObject agentPrefab, int count)
     {
-        if (!isNavMeshEnabled || agentPrefab == null) return;
+        string agentName = agentPrefab.name;
+        var activeAgents = activeAgentsByType[agentName];
 
-        Vector3 spawnPosition = GetFeatureBasedSpawnPoint();
-        if (spawnPosition == Vector3.zero)
+        // Spawn agents up to the limit
+        while (activeAgents.Count < count)
         {
-            Debug.LogWarning($"Failed to find a valid spawn point for {agentPrefab.name}.");
-            return;
-        }
-
-        GameObject agent = Instantiate(agentPrefab, spawnPosition, Quaternion.identity);
-        activeAgents.Add(agent);
-    }
-
-    private void RemoveAgent(GameObject agentPrefab)
-    {
-        activeAgents.RemoveAll(agent =>
-        {
-            if (agent != null && agent.name.Contains(agentPrefab.name))
+            Vector3 spawnPosition = GetFeatureBasedSpawnPoint();
+            if (spawnPosition == Vector3.zero)
             {
-                Destroy(agent);
-                return true;
+                Debug.LogWarning($"Failed to find a valid spawn point for {agentName}.");
+                break;
             }
-            return false;
-        });
+
+            GameObject agent = Instantiate(agentPrefab, spawnPosition, Quaternion.identity);
+            activeAgents.Add(agent);
+        }
     }
 
-    private void ClearAgents()
+    private void RemoveAgents(GameObject agentPrefab)
     {
+        string agentName = agentPrefab.name;
+        var activeAgents = activeAgentsByType[agentName];
+
+        // Remove all active agents of this type
         foreach (var agent in activeAgents)
         {
             if (agent != null)
@@ -204,13 +218,30 @@ public class NavMeshManager : MonoBehaviour
                 Destroy(agent);
             }
         }
+
         activeAgents.Clear();
+    }
+
+    private void ClearAgents()
+    {
+        foreach (var agentList in activeAgentsByType.Values)
+        {
+            foreach (var agent in agentList)
+            {
+                if (agent != null)
+                {
+                    Destroy(agent);
+                }
+            }
+            agentList.Clear();
+        }
     }
 
     private Vector3 GetFeatureBasedSpawnPoint()
     {
         List<Vector3> potentialSpawnPoints = new List<Vector3>();
 
+        // Collect spawn points from features
         foreach (var feature in featureManager.GetFeatures())
         {
             if (feature == null) continue;
@@ -225,15 +256,24 @@ public class NavMeshManager : MonoBehaviour
             }
         }
 
+        // If feature-based spawn points are available, select one at random
         if (potentialSpawnPoints.Count > 0)
         {
             int randomIndex = Random.Range(0, potentialSpawnPoints.Count);
             return potentialSpawnPoints[randomIndex];
         }
 
-        return GetRandomNavMeshPoint();
-    }
+        // Fallback to a random NavMesh point
+        Vector3 randomNavMeshPoint = GetRandomNavMeshPoint();
+        if (randomNavMeshPoint != Vector3.zero)
+        {
+            return randomNavMeshPoint;
+        }
 
+        // If all else fails, use a fallback position at the center of the terrain
+        Debug.LogWarning("No valid spawn points found. Using terrain center as fallback.");
+        return terrainGeneratorManager.terrainSize * 0.5f;
+    }
 
     private Vector3 GetRandomNavMeshPoint()
     {
@@ -243,18 +283,61 @@ public class NavMeshManager : MonoBehaviour
             return Vector3.zero;
         }
 
-        NavMeshHit hit;
-        Vector3 randomPoint = new Vector3(
-            Random.Range(0, terrainGeneratorManager.terrainSize.x),
-            0,
-            Random.Range(0, terrainGeneratorManager.terrainSize.z)
-        );
-
-        if (NavMesh.SamplePosition(randomPoint, out hit, 10f, NavMesh.AllAreas))
+        int maxAttempts = 10; // Maximum number of attempts to find a valid NavMesh point
+        for (int i = 0; i < maxAttempts; i++)
         {
-            return hit.position;
+            Vector3 randomPoint = new Vector3(
+                Random.Range(0, terrainGeneratorManager.terrainSize.x),
+                0,
+                Random.Range(0, terrainGeneratorManager.terrainSize.z)
+            );
+
+            if (NavMesh.SamplePosition(randomPoint, out NavMeshHit hit, 10f, NavMesh.AllAreas))
+            {
+                return hit.position;
+            }
         }
 
+        // If no valid point is found after maxAttempts, log a warning
+        Debug.LogWarning("Failed to find a valid NavMesh point after multiple attempts.");
         return Vector3.zero;
     }
+
+    private void OnMaxAgentsInputChanged(string value)
+    {
+        if (int.TryParse(value, out int newMaxAgents) && newMaxAgents > 0)
+        {
+            maxAgentsPerType = newMaxAgents;
+            Debug.Log($"Updated maxAgentsPerType to {maxAgentsPerType}.");
+
+            // Clear all existing agents and reinstantiate based on the updated max value
+            ClearAgents();
+            ReInstantiateAgents();
+        }
+        else
+        {
+            Debug.LogWarning("Invalid input for maxAgentsPerType. Please enter a positive integer.");
+            maxAgentsInputField.text = maxAgentsPerType.ToString(); // Reset to the previous valid value
+        }
+    }
+
+    private void ReInstantiateAgents()
+    {
+        foreach (var kvp in agentToggles)
+        {
+            string agentName = kvp.Key;
+            Toggle toggle = kvp.Value;
+
+            if (toggle.isOn)
+            {
+                GameObject agentPrefab = agentPrefabs.Find(p => p.name == agentName);
+                if (agentPrefab != null)
+                {
+                    SpawnAgents(agentPrefab, maxAgentsPerType);
+                }
+            }
+        }
+    }
+
+
 }
