@@ -39,9 +39,9 @@ MonoBehaviour:
     thresholds:
       layer1: {fileID: 8574412962073106934, guid: 350cff24b308cb94fbcb0040ec708bc2, type: 2}
       minHeight1: -0.05
-      maxHeight1: 0.2
+      maxHeight1: 0.1
       layer2: {fileID: 8574412962073106934, guid: 65e4c298b4a506246b587631e47dd610, type: 2}
-      minHeight2: 0.175
+      minHeight2: 0.075
       maxHeight2: 0.975
       layer3: {fileID: 8574412962073106934, guid: 42f80b93d46647248a57751d9be92221, type: 2}
       minHeight3: 0.95
