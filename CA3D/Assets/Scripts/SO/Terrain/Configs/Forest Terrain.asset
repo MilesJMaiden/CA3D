@@ -13,14 +13,14 @@ MonoBehaviour:
   m_Name: Forest Terrain
   m_EditorClassIdentifier: 
   usePerlinNoise: 1
-  perlinLayers: 2
-  perlinBaseScale: 1
+  perlinLayers: 3
+  perlinBaseScale: 2
   perlinAmplitudeDecay: 0.4
   perlinFrequencyGrowth: 2
   perlinOffset: {x: 0.2, y: 3}
   useFractalBrownianMotion: 1
-  fBmLayers: 2
-  fBmBaseScale: 1
+  fBmLayers: 3
+  fBmBaseScale: 2
   fBmAmplitudeDecay: 0.2
   fBmFrequencyGrowth: 1
   fBmOffset: {x: 0.5, y: 1}
@@ -91,6 +91,7 @@ MonoBehaviour:
   trailEndPoint: {x: 1, y: 0}
   trailWidth: 4
   trailRandomness: 2
+  trailLayer: {fileID: 0}
   useErosion: 0
   talusAngle: 0.1
   erosionIterations: 1
@@ -119,8 +120,10 @@ MonoBehaviour:
     feature: {fileID: 11400000, guid: 9aa5cf6c4fb3b024b8003d514377a293, type: 2}
   - isEnabled: 0
     feature: {fileID: 11400000, guid: 95b39fbbc52125f4bb59e6dabfddb364, type: 2}
-  - isEnabled: 1
+  - isEnabled: 0
     feature: {fileID: 11400000, guid: 2ddd9adf85f640d4482aabb1fac22889, type: 2}
   featureCAIterations: 2
   featureNeighborThreshold: 3
   globalFeatureDensity: 1
+  enableAgents: 0
+  agentSettings: []
