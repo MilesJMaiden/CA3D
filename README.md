@@ -31,7 +31,7 @@ A **hybrid terrain-generation system** built in Unity that combines noise-based 
 ## Getting Started
 
 1. **Clone or Download** this repository.
-2. **Open** the project in Unity (tested with Unity 2021.3 or later).
+2. **Open** the project in Unity (tested with Unity 6000.0.30f1).
 3. **Open** the main scene (e.g., `Assets/Scenes/MainScene.unity`).
 4. **Check** the `TerrainGeneratorManager` and `FeatureManager` components in the scene to customize default presets.
 5. **Press Play** to see the terrain generated in real-time. Adjust parameters in the UI to experiment.
