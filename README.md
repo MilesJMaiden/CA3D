@@ -1,4 +1,4 @@
-##Procedural Terrain and Ecosystem Simulator
+## Procedural Terrain and Ecosystem Simulator
 
 A **hybrid terrain-generation system** built in Unity that combines noise-based algorithms (Perlin Noise, Fractal Brownian Motion, Voronoi Biomes) with a **Cellular Automata** approach to place features (rocks, shrubs, cacti) and a **basic AI** predator-prey model using Unity's Navigation mesh and finite state machines (FSMs).
 
